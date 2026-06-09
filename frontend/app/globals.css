@@ -1,0 +1,976 @@
+@import "flag-icons/css/flag-icons.min.css";
+@import "../styles/theme.css";
+@import "../styles/atmosphere.css";
+@import "../styles/matchday.css";
+@import "../styles/watch.css";
+@import "../styles/home.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+  max-width: 100%;
+  overflow-x: clip;
+  @apply antialiased;
+}
+
+.card {
+  position: relative;
+  border-radius: var(--md-radius-lg, 1.125rem);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  padding: 1.5rem;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow:
+    0 1px 0 var(--glass-inset) inset,
+    var(--glass-shadow);
+  transition:
+    border-color var(--md-duration-fast, 180ms) var(--md-ease-out, ease),
+    box-shadow var(--md-duration-mid, 420ms) var(--md-ease-out, ease),
+    transform var(--md-duration-mid, 420ms) var(--md-ease-out, ease);
+}
+
+.card:hover {
+  border-color: var(--md-border-highlight, var(--app-gold-border));
+  box-shadow:
+    0 1px 0 var(--glass-inset) inset,
+    var(--glass-shadow-hover);
+}
+
+/* Opt-in lift for clickable cards (links/buttons) */
+a.card:hover,
+button.card:hover {
+  transform: translateY(-2px);
+}
+
+.btn-primary {
+  border-radius: 999px;
+  border: 1px solid var(--app-gold-border);
+  background: linear-gradient(145deg, var(--app-gold-light) 0%, var(--app-gold) 100%);
+  padding: 0.5rem 1.1rem;
+  font-weight: 600;
+  color: var(--app-gold-on);
+  transition:
+    box-shadow var(--md-duration-fast, 180ms) var(--md-ease-out, ease),
+    transform var(--md-duration-fast, 180ms) var(--md-ease-out, ease),
+    filter var(--md-duration-fast, 180ms) var(--md-ease-out, ease);
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 16px var(--app-gold-glow);
+  filter: brightness(1.04);
+}
+
+.btn-primary:active {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  border-radius: 999px;
+  border: 1px solid var(--app-gold-border);
+  background: var(--app-gold-subtle);
+  padding: 0.5rem 1.1rem;
+  color: var(--app-gold);
+  transition:
+    background var(--md-duration-fast, 180ms) var(--md-ease-out, ease),
+    box-shadow var(--md-duration-fast, 180ms) var(--md-ease-out, ease),
+    transform var(--md-duration-fast, 180ms) var(--md-ease-out, ease);
+}
+
+.btn-secondary:hover {
+  background: color-mix(in srgb, var(--app-gold-subtle) 70%, var(--app-gold) 30%);
+  box-shadow: 0 2px 12px var(--app-gold-subtle);
+}
+
+.btn-secondary:active {
+  transform: translateY(1px);
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible {
+  outline: 2px solid var(--app-gold);
+  outline-offset: 2px;
+}
+
+.bracket-tree {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--app-pitch) 15%, transparent) 0%,
+    transparent 100%
+  );
+  --bracket-line: color-mix(in srgb, var(--app-gold) 55%, var(--app-border));
+}
+
+.bracket-connector-svg {
+  display: block;
+  overflow: visible;
+}
+
+@keyframes football-spin-bounce {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(180deg);
+  }
+  100% {
+    transform: translateY(0) rotate(360deg);
+  }
+}
+
+.football-loader-ball {
+  animation: football-spin-bounce 0.9s ease-in-out infinite;
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--app-text) 25%, transparent));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .football-loader-ball {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+.champion-banner {
+  animation: champion-banner-in 0.45s ease-out;
+}
+
+@keyframes champion-banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champion-banner {
+    animation: none;
+  }
+}
+
+/* Bracket Monte Carlo tab */
+.sim-section-title {
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.sim-champ-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sim-champ-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 3rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+@media (min-width: 480px) {
+  .sim-champ-row {
+    grid-template-columns: 5rem 1fr 3.25rem;
+  }
+}
+
+.sim-champ-bar-track {
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--app-text) 8%, transparent);
+  overflow: hidden;
+}
+
+.sim-champ-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--app-gold-dark), var(--app-gold-light));
+  transition: width 400ms ease;
+}
+
+.sim-champ-pct {
+  text-align: right;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.sim-path-round-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--app-text-secondary);
+}
+
+.sim-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+
+.sim-btn-hint {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+}
+
+.info-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.info-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--app-text-muted) 45%, transparent);
+  background: color-mix(in srgb, var(--app-text) 6%, transparent);
+  color: var(--app-text-muted);
+  font-size: 0.625rem;
+  line-height: 1;
+  cursor: help;
+  padding: 0;
+  flex-shrink: 0;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease;
+}
+
+.info-tooltip-trigger:hover,
+.info-tooltip-trigger:focus-visible {
+  color: var(--app-text);
+  border-color: var(--app-gold-border);
+  background: var(--app-gold-subtle);
+  outline: none;
+}
+
+.info-tooltip {
+  position: absolute;
+  z-index: 50;
+  left: 50%;
+  bottom: calc(100% + 0.45rem);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(17.5rem, calc(100vw - 2rem));
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--app-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  font-weight: 400;
+  text-align: left;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--app-text) 14%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (max-width: 639px) {
+  .info-tooltip {
+    left: auto;
+    right: -0.25rem;
+    transform: none;
+  }
+}
+
+.bracket-persist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  transition: filter 120ms ease, opacity 120ms ease;
+}
+
+.bracket-persist-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bracket-persist-btn-guest {
+  opacity: 0.88;
+}
+
+.bracket-persist-btn-guest:hover {
+  filter: brightness(1.05);
+}
+
+.bracket-persist-btn-clear {
+  border: 2px solid var(--app-danger);
+  background: var(--app-danger-bg);
+  color: var(--app-danger);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+
+.bracket-persist-btn-save {
+  border: 1px solid color-mix(in srgb, var(--app-gold) 55%, var(--app-border));
+  background: linear-gradient(145deg, var(--app-gold-light) 0%, var(--app-gold) 100%);
+  color: var(--app-gold-on);
+  font-weight: 700;
+}
+
+.bracket-persist-lock {
+  font-size: 0.75rem;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+/* App-wide toast (portal, top-right — avoids overlap with page content) */
+.app-toast-stack {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 9999;
+  width: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.app-toast {
+  pointer-events: auto;
+  padding: 0.875rem 1rem;
+  border-radius: 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--app-gold) 35%, var(--app-border));
+  background: var(--app-bg-mid);
+  color: var(--app-text);
+  box-shadow:
+    0 16px 40px color-mix(in srgb, var(--app-text) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--app-text) 6%, transparent);
+  animation: app-toast-in 220ms ease-out;
+}
+
+.app-toast-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--app-text);
+}
+
+.app-toast-actions {
+  margin-top: 0.625rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.app-toast-link {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--app-gold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.app-toast-link:hover {
+  color: var(--app-gold-light);
+}
+
+.app-toast-dismiss {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.app-toast-dismiss:hover {
+  color: var(--app-text);
+}
+
+@keyframes app-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-toast {
+    animation: none;
+  }
+}
+
+/* FanPlan — premium travel planner */
+.fanplan-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.fanplan-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 45% at 10% -5%, var(--ambient-gold) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 40% at 90% 0%, var(--ambient-cool) 0%, transparent 50%);
+  opacity: 0.9;
+}
+
+.fanplan-panel {
+  border: 1px solid color-mix(in srgb, var(--app-border) 80%, var(--app-gold) 20%);
+  box-shadow: var(--glass-shadow, 0 12px 30px rgba(0, 0, 0, 0.14));
+}
+
+.fanplan-kicker {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--app-gold);
+  margin-bottom: 0.25rem;
+}
+
+.fanplan-team-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.fanplan-team-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 70%, transparent);
+  background: color-mix(in srgb, var(--app-text) 4%, transparent);
+  color: var(--app-text-secondary);
+  font-size: 0.875rem;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.fanplan-team-chip:hover {
+  border-color: color-mix(in srgb, var(--app-gold) 45%, var(--app-border));
+  transform: translateY(-1px);
+}
+
+.fanplan-team-chip-active {
+  border-color: color-mix(in srgb, var(--app-gold) 55%, var(--app-border));
+  background: linear-gradient(145deg, var(--app-gold-light) 0%, var(--app-gold) 100%);
+  color: var(--app-gold-on);
+  box-shadow: 0 4px 16px var(--app-gold-glow);
+}
+
+.fanplan-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem 1.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--app-border) 50%, transparent);
+}
+
+.fanplan-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.fanplan-field-wide {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.fanplan-field-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.fanplan-field-hint {
+  font-size: 0.6875rem;
+  color: var(--app-text-faint);
+  line-height: 1.35;
+}
+
+.fanplan-input {
+  width: 100%;
+  max-width: 10rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--app-border) 75%, transparent);
+  background: color-mix(in srgb, var(--app-text) 5%, transparent);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.fanplan-field-wide .fanplan-input {
+  max-width: 14rem;
+}
+
+.fanplan-generate-wrap {
+  margin-left: auto;
+}
+
+.fanplan-generate-btn {
+  min-width: 11rem;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9375rem;
+}
+
+.fanplan-stat-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .fanplan-stat-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.fanplan-stat-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.15rem 1.25rem;
+  border-radius: var(--md-radius-md, 0.875rem);
+  border: 1px solid color-mix(in srgb, var(--app-border) 65%, transparent);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--app-text) 6%, transparent) 0%,
+    color-mix(in srgb, var(--app-text) 2%, transparent) 100%
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+
+.fanplan-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  margin-bottom: 0.75rem;
+}
+
+.fanplan-stat-icon-gold {
+  color: var(--app-gold);
+  background: var(--app-gold-subtle);
+  border: 1px solid color-mix(in srgb, var(--app-gold) 35%, transparent);
+}
+
+.fanplan-stat-icon-cool {
+  color: var(--app-text);
+  background: color-mix(in srgb, var(--ambient-cool, #3b82f6) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-border) 60%, transparent);
+}
+
+.fanplan-stat-icon-pitch {
+  color: var(--app-live, #22c55e);
+  background: color-mix(in srgb, var(--app-live, #22c55e) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-live, #22c55e) 25%, transparent);
+}
+
+.fanplan-stat-label {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.fanplan-stat-value {
+  margin-top: 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--app-text);
+}
+
+.fanplan-stat-value-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+}
+
+.fanplan-stat-sub {
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--app-text-faint);
+}
+
+.fanplan-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.fanplan-timeline-item {
+  display: grid;
+  grid-template-columns: 2.75rem 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.fanplan-timeline-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+}
+
+.fanplan-timeline-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in srgb, var(--app-gold) 55%, var(--app-border));
+  background: var(--app-gold-subtle);
+  color: var(--app-gold);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--app-gold) 12%, transparent);
+}
+
+.fanplan-timeline-line {
+  flex: 1;
+  width: 2px;
+  min-height: 1.5rem;
+  margin-top: 0.35rem;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--app-gold) 45%, transparent) 0,
+    color-mix(in srgb, var(--app-gold) 45%, transparent) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.fanplan-stop-card {
+  padding: 1.15rem 1.25rem;
+  border-radius: var(--md-radius-md, 0.875rem);
+  border: 1px solid color-mix(in srgb, var(--app-border) 60%, transparent);
+  background: color-mix(in srgb, var(--app-text) 4%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--app-text) 6%, transparent);
+}
+
+.fanplan-travel-leg {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px dashed color-mix(in srgb, var(--app-border) 70%, transparent);
+  background: color-mix(in srgb, var(--app-text) 3%, transparent);
+}
+
+.fanplan-travel-leg-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+}
+
+.fanplan-travel-leg-body {
+  margin-top: 0.15rem;
+  font-size: 0.8125rem;
+  color: var(--app-text-secondary);
+}
+
+.fanplan-stop-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.fanplan-stop-city {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
+.fanplan-ticket-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--app-gold) 35%, transparent);
+  background: var(--app-gold-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--app-gold);
+  white-space: nowrap;
+}
+
+.fanplan-stadium {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--app-text-muted);
+}
+
+.fanplan-fixture {
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--app-border) 50%, transparent);
+  background: color-mix(in srgb, var(--app-text) 3%, transparent);
+}
+
+.fanplan-fixture-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fanplan-fixture-date {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--app-text-secondary);
+}
+
+.fanplan-ticket-note {
+  margin-top: 0.65rem;
+  font-size: 0.6875rem;
+  color: var(--app-text-faint);
+}
+
+.fanplan-border-callout {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--app-warning, #f59e0b) 45%, transparent);
+  background: color-mix(in srgb, var(--app-warning, #f59e0b) 12%, transparent);
+  color: var(--app-text);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.fanplan-running-total {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid color-mix(in srgb, var(--app-border) 40%, transparent);
+  font-size: 0.6875rem;
+  color: var(--app-text-faint);
+}
+
+.fanplan-skipped {
+  margin-top: 1.5rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: var(--md-radius-md, 0.875rem);
+  border: 1px dashed color-mix(in srgb, var(--app-text-muted) 35%, var(--app-border));
+  background: color-mix(in srgb, var(--app-text) 5%, transparent);
+}
+
+.fanplan-skipped-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--app-text-secondary);
+}
+
+.fanplan-skipped-sub {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+
+.fanplan-skipped-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.fanplan-skipped-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--app-text) 4%, transparent);
+}
+
+.fanplan-skipped-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 0.5rem;
+  border-radius: 9999px;
+  background: var(--app-text-muted);
+  flex-shrink: 0;
+}
+
+.fanplan-skipped-match {
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--app-text);
+  line-height: 1.35;
+}
+
+.fanplan-skipped-reason {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--app-text-secondary);
+  line-height: 1.45;
+}
+
+.fanplan-info-notes {
+  list-style: disc;
+  padding-left: 1.15rem;
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  color: var(--app-text-muted);
+}
+
+.fanplan-disclaimer {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--app-border) 45%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--app-text-faint);
+}
+
+.fanplan-map-shell {
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.fanplan-map-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.fanplan-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  max-width: 100%;
+}
+
+.fanplan-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--app-border) 55%, transparent);
+  background: color-mix(in srgb, var(--app-text) 4%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--app-text-secondary);
+}
+
+.fanplan-map-legend-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 9999px;
+  background: var(--app-gold-subtle);
+  border: 1px solid color-mix(in srgb, var(--app-gold) 40%, transparent);
+  color: var(--app-gold);
+  font-size: 0.6875rem;
+  font-weight: 900;
+}
+
+.fanplan-map-frame {
+  height: min(560px, 62vh);
+  min-height: 420px;
+  border-radius: var(--md-radius-lg, 1.125rem);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--app-border) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-text) 4%, transparent);
+}
+
+.fanplan-map-marker-wrap {
+  background: transparent !important;
+  border: none !important;
+}
+
+.fanplan-map-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 3px solid color-mix(in srgb, var(--app-gold-on, #1a1a1a) 25%, var(--app-gold));
+  background: linear-gradient(145deg, var(--app-gold-light) 0%, var(--app-gold) 100%);
+  color: var(--app-gold-on);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--app-gold) 50%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--app-bg-mid) 85%, transparent);
+}
+
+.fanplan-map-popup .leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+}
+
+/* Respect reduced-motion for the shared card/button microinteractions */
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .btn-primary,
+  .btn-secondary {
+    transition: none;
+  }
+  .card:hover,
+  a.card:hover,
+  button.card:hover,
+  .btn-primary:hover,
+  .btn-primary:active,
+  .btn-secondary:hover,
+  .btn-secondary:active {
+    transform: none;
+  }
+}
+

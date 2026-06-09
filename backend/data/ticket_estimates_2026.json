@@ -1,0 +1,14 @@
+{
+  "_comment": "Estimated FIFA World Cup 2026 ticket USD ranges for FanPlan. NOT official FIFA prices. FIFA uses dynamic pricing. Ranges based on publicly reported 2026 figures (supporter tier through Category 1 and knockout-round reporting). See backend/app/services/ticket_estimates.py for loader.",
+  "host_nation_codes": ["USA", "MEX", "CAN"],
+  "stages": {
+    "group": { "low_usd": 120, "high_usd": 410, "label": "Group stage (non-host)" },
+    "group_host": { "low_usd": 355, "high_usd": 2735, "label": "Group stage (host nation)" },
+    "r32": { "low_usd": 105, "high_usd": 750, "label": "Round of 32" },
+    "r16": { "low_usd": 170, "high_usd": 980, "label": "Round of 16" },
+    "qf": { "low_usd": 275, "high_usd": 1775, "label": "Quarter-final" },
+    "sf": { "low_usd": 420, "high_usd": 3295, "label": "Semi-final" },
+    "third": { "low_usd": 275, "high_usd": 1775, "label": "Third-place match" },
+    "final": { "low_usd": 420, "high_usd": 6730, "label": "Final" }
+  }
+}

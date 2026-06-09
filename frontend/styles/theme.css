@@ -1,0 +1,474 @@
+/**
+ * KickOff26 — shared light/dark theme tokens.
+ * Toggle via data-theme="dark" | "light" on <html> (default: dark).
+ */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* App shell */
+  --app-bg: #08080d;
+  --app-bg-mid: #0e0e16;
+  --app-text: rgba(255, 255, 255, 0.92);
+  --app-text-secondary: rgba(255, 255, 255, 0.78);
+  --app-text-muted: rgba(255, 255, 255, 0.48);
+  --app-text-faint: rgba(255, 255, 255, 0.35);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-nav-border: rgba(255, 255, 255, 0.08);
+
+  /* Gold accent */
+  --app-gold: #d4af37;
+  --app-gold-light: #e8c96a;
+  --app-gold-dark: #a8892d;
+  --app-gold-glow: rgba(212, 175, 55, 0.4);
+  --app-gold-on: #08080d;
+  --app-gold-border: rgba(212, 175, 55, 0.35);
+  --app-gold-subtle: rgba(212, 175, 55, 0.12);
+
+  /* Secondary */
+  --app-cool: #6b9fff;
+  --app-pitch: #1b4332;
+  --app-pitch-dark: #0d2818;
+  --app-live: #86efac;
+  --app-live-dot: #4ade80;
+  --app-danger: #fca5a5;
+  --app-danger-bg: rgba(239, 68, 68, 0.15);
+
+  /* Host-nation accents (secondary to gold) */
+  --host-mx: #1ea66a;
+  --host-mx-strong: #2bbd7c;
+  --host-mx-subtle: rgba(30, 166, 106, 0.14);
+  --host-us: #5b8def;
+  --host-us-strong: #7aa6ff;
+  --host-us-subtle: rgba(91, 141, 239, 0.14);
+  --host-ca: #ef5350;
+  --host-ca-strong: #ff6b67;
+  --host-ca-subtle: rgba(239, 83, 80, 0.14);
+
+  /* Ambient backgrounds */
+  --ambient-gold: rgba(212, 175, 55, 0.07);
+  --ambient-cool: rgba(107, 159, 255, 0.06);
+  --ambient-pitch: rgba(27, 67, 50, 0.08);
+  --ambient-mesh: rgba(255, 255, 255, 0.015);
+  --ambient-mesh-opacity: 0.35;
+
+  /* Atmosphere foundation stops (rich, non-flat) */
+  --atmos-bg-1: #050816;
+  --atmos-bg-2: #07101f;
+  --atmos-bg-3: #0b1325;
+  --atmos-bg-4: #08171a;
+  --atmos-line: rgba(255, 255, 255, 0.5);
+  --atmos-stadium: rgba(220, 232, 255, 1);
+  --atmos-particle: rgba(232, 201, 106, 0.7);
+
+  /* Glass surfaces */
+  --glass-bg: linear-gradient(
+    155deg,
+    rgba(255, 245, 220, 0.075) 0%,
+    rgba(255, 255, 255, 0.04) 32%,
+    rgba(14, 13, 20, 0.78) 100%
+  );
+  --glass-bg-hover: linear-gradient(
+    155deg,
+    rgba(255, 245, 220, 0.09) 0%,
+    rgba(255, 255, 255, 0.05) 32%,
+    rgba(18, 16, 26, 0.8) 100%
+  );
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.07);
+  --glass-inset: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --glass-shadow-hover: 0 20px 48px rgba(0, 0, 0, 0.42), 0 4px 12px rgba(0, 0, 0, 0.25);
+
+  /* Unified shadow scale */
+  --shadow-soft: 0 6px 20px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-elevated: 0 18px 46px rgba(0, 0, 0, 0.46), 0 4px 12px rgba(0, 0, 0, 0.28);
+  --shadow-glow: 0 0 0 1px var(--app-gold-border), 0 14px 40px var(--app-gold-glow);
+
+  /* Live hero glass */
+  --glass-live-bg: linear-gradient(
+    155deg,
+    rgba(255, 248, 220, 0.12) 0%,
+    rgba(212, 175, 55, 0.06) 35%,
+    rgba(14, 13, 20, 0.82) 100%
+  );
+  --glass-live-border: rgba(212, 175, 55, 0.35);
+  --glass-live-glow: rgba(212, 175, 55, 0.12);
+  --glass-live-hero-border: rgba(212, 175, 55, 0.45);
+  --glass-live-hero-glow: rgba(212, 175, 55, 0.18);
+  --glass-live-overlay: linear-gradient(
+    135deg,
+    rgba(212, 175, 55, 0.18) 0%,
+    transparent 45%,
+    rgba(107, 159, 255, 0.08) 100%
+  );
+
+  /* Legacy card (non-matchday pages) */
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-border: rgba(212, 175, 55, 0.2);
+  --input-bg: rgba(0, 0, 0, 0.25);
+
+  /* Nav icon buttons */
+  --nav-icon-bg: rgba(255, 255, 255, 0.04);
+  --nav-icon-border: rgba(255, 255, 255, 0.1);
+
+  /* MatchDay aliases */
+  --md-base: var(--app-bg);
+  --md-border: var(--app-border);
+  --md-border-highlight: rgba(255, 255, 255, 0.16);
+  --md-border-gold: var(--app-gold-border);
+  --md-gold: var(--app-gold);
+  --md-gold-light: var(--app-gold-light);
+  --md-gold-glow: var(--app-gold-glow);
+  --md-cool: var(--app-cool);
+  --md-surface: rgba(255, 255, 255, 0.035);
+  --md-surface-hover: rgba(255, 255, 255, 0.055);
+
+  --md-prob-home: linear-gradient(90deg, #14532d 0%, #22c55e 55%, #4ade80 100%);
+  --md-prob-draw: linear-gradient(90deg, #374151 0%, #9ca3af 55%, #d1d5db 100%);
+  --md-prob-away: linear-gradient(90deg, #1e3a5f 0%, #3b82f6 55%, #6b9fff 100%);
+  --md-prob-home-glow: rgba(74, 222, 128, 0.45);
+  --md-prob-draw-glow: rgba(209, 213, 219, 0.25);
+  --md-prob-away-glow: rgba(107, 159, 255, 0.45);
+  --md-prob-track: rgba(255, 255, 255, 0.06);
+  --md-prob-track-inset: rgba(0, 0, 0, 0.35);
+
+  --md-cal-hover-bg: rgba(212, 175, 55, 0.12);
+  --md-cal-hover-border: rgba(212, 175, 55, 0.2);
+  --md-cal-today-border: rgba(212, 175, 55, 0.35);
+  --md-cal-today-glow: rgba(212, 175, 55, 0.15);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --app-bg: #ece6da;
+  --app-bg-mid: #e4ddcf;
+  --app-text: rgba(20, 18, 26, 0.95);
+  --app-text-secondary: rgba(20, 18, 26, 0.78);
+  --app-text-muted: rgba(20, 18, 26, 0.62);
+  --app-text-faint: rgba(20, 18, 26, 0.48);
+  --app-border: rgba(20, 18, 26, 0.14);
+  --app-nav-border: rgba(20, 18, 26, 0.1);
+
+  --app-gold: #9a7518;
+  --app-gold-light: #b8922a;
+  --app-gold-dark: #7a5c10;
+  --app-gold-glow: rgba(154, 117, 24, 0.22);
+  --app-gold-on: #fffdf8;
+  --app-gold-border: rgba(154, 117, 24, 0.35);
+  --app-gold-subtle: rgba(154, 117, 24, 0.1);
+
+  --app-cool: #3b6fd4;
+  --app-pitch: #1b4332;
+  --app-pitch-dark: #0d2818;
+  --app-live: #15803d;
+  --app-live-dot: #16a34a;
+  --app-danger: #b91c1c;
+  --app-danger-bg: rgba(239, 68, 68, 0.1);
+
+  /* Host-nation accents (secondary to gold) — deepened for cream readability */
+  --host-mx: #0a5e34;
+  --host-mx-strong: #0c8f4d;
+  --host-mx-subtle: rgba(15, 122, 68, 0.14);
+  --host-us: #1f4ba3;
+  --host-us-strong: #2256bd;
+  --host-us-subtle: rgba(45, 95, 196, 0.14);
+  --host-ca: #a81d1d;
+  --host-ca-strong: #b51f1f;
+  --host-ca-subtle: rgba(198, 40, 40, 0.14);
+
+  --ambient-gold: rgba(154, 117, 24, 0.06);
+  --ambient-cool: rgba(59, 111, 212, 0.05);
+  --ambient-pitch: rgba(27, 67, 50, 0.04);
+  --ambient-mesh: rgba(22, 20, 28, 0.04);
+  --ambient-mesh-opacity: 0.5;
+
+  /* Atmosphere foundation stops (warm ivory — deep enough that white cards lift) */
+  --atmos-bg-1: #efe9dd;
+  --atmos-bg-2: #e7dfd0;
+  --atmos-bg-3: #ece5d8;
+  --atmos-bg-4: #e2dac8;
+  --atmos-line: rgba(22, 20, 28, 0.5);
+  --atmos-stadium: rgba(40, 50, 70, 1);
+  --atmos-particle: rgba(154, 117, 24, 0.6);
+
+  --glass-bg: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 253, 248, 1) 45%,
+    rgba(252, 250, 244, 1) 100%
+  );
+  --glass-bg-hover: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 254, 250, 1) 45%,
+    rgba(254, 252, 247, 1) 100%
+  );
+  --glass-border: rgba(20, 18, 26, 0.15);
+  --glass-highlight: rgba(255, 255, 255, 0.95);
+  --glass-inset: rgba(255, 255, 255, 0.95);
+  --glass-shadow: 0 10px 28px rgba(20, 18, 26, 0.13), 0 2px 6px rgba(20, 18, 26, 0.09);
+  --glass-shadow-hover: 0 16px 38px rgba(20, 18, 26, 0.17), 0 4px 12px rgba(20, 18, 26, 0.11);
+
+  /* Unified shadow scale */
+  --shadow-soft: 0 6px 18px rgba(20, 18, 26, 0.12), 0 1px 3px rgba(20, 18, 26, 0.09);
+  --shadow-elevated: 0 18px 42px rgba(20, 18, 26, 0.18), 0 4px 12px rgba(20, 18, 26, 0.11);
+  --shadow-glow: 0 0 0 1px var(--app-gold-border), 0 14px 40px var(--app-gold-glow);
+
+  --glass-live-bg: linear-gradient(
+    155deg,
+    rgba(255, 248, 230, 0.98) 0%,
+    rgba(250, 240, 210, 0.92) 35%,
+    rgba(240, 235, 225, 0.88) 100%
+  );
+  --glass-live-border: rgba(154, 117, 24, 0.4);
+  --glass-live-glow: rgba(154, 117, 24, 0.12);
+  --glass-live-hero-border: rgba(154, 117, 24, 0.5);
+  --glass-live-hero-glow: rgba(154, 117, 24, 0.18);
+  --glass-live-overlay: linear-gradient(
+    135deg,
+    rgba(184, 146, 42, 0.12) 0%,
+    transparent 45%,
+    rgba(59, 111, 212, 0.06) 100%
+  );
+
+  --card-bg: rgba(255, 255, 255, 0.97);
+  --card-border: rgba(20, 18, 26, 0.14);
+  --input-bg: rgba(255, 255, 255, 0.92);
+
+  --nav-icon-bg: rgba(255, 255, 255, 0.8);
+  --nav-icon-border: rgba(20, 18, 26, 0.12);
+
+  --md-border-highlight: rgba(20, 18, 26, 0.2);
+  --md-surface: rgba(255, 255, 255, 0.9);
+  --md-surface-hover: rgba(255, 255, 255, 1);
+
+  --md-prob-home: linear-gradient(90deg, #166534 0%, #16a34a 55%, #22c55e 100%);
+  --md-prob-draw: linear-gradient(90deg, #6b7280 0%, #9ca3af 55%, #d1d5db 100%);
+  --md-prob-away: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #60a5fa 100%);
+  --md-prob-home-glow: rgba(34, 197, 94, 0.2);
+  --md-prob-draw-glow: rgba(107, 114, 128, 0.15);
+  --md-prob-away-glow: rgba(59, 130, 246, 0.2);
+  --md-prob-track: rgba(20, 18, 26, 0.1);
+  --md-prob-track-inset: rgba(20, 18, 26, 0.07);
+
+  --md-cal-hover-bg: rgba(154, 117, 24, 0.1);
+  --md-cal-hover-border: rgba(154, 117, 24, 0.22);
+  --md-cal-today-border: rgba(154, 117, 24, 0.35);
+  --md-cal-today-glow: rgba(154, 117, 24, 0.12);
+}
+
+/* Continuous app canvas — the cinematic backdrop is provided by the shared
+   <Atmosphere /> layer (styles/atmosphere.css) rendered fixed behind content. */
+.app-canvas {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  background: var(--app-bg);
+  color: var(--app-text);
+}
+
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--app-bg) 80%, transparent);
+  border-bottom: 1px solid var(--app-nav-border);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Semantic text utilities */
+.text-app {
+  color: var(--app-text);
+}
+.text-app-secondary {
+  color: var(--app-text-secondary);
+}
+.text-app-muted {
+  color: var(--app-text-muted);
+}
+.text-app-faint {
+  color: var(--app-text-faint);
+}
+.text-app-gold {
+  color: var(--app-gold);
+}
+.text-host-mx {
+  color: var(--host-mx);
+}
+.text-host-us {
+  color: var(--host-us);
+}
+.text-host-ca {
+  color: var(--host-ca);
+}
+
+.nav-icon-btn {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid var(--nav-icon-border);
+  background: var(--nav-icon-bg);
+  color: var(--app-text-muted);
+  transition:
+    border-color 180ms ease,
+    color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.nav-icon-btn:hover {
+  border-color: var(--app-gold-border);
+  color: var(--app-gold);
+  box-shadow: 0 2px 12px var(--app-gold-subtle);
+}
+
+.nav-link,
+.nav-link-active {
+  position: relative;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  font-weight: 500;
+  transition:
+    color var(--md-duration-fast, 180ms) var(--md-ease-out, ease),
+    background var(--md-duration-fast, 180ms) var(--md-ease-out, ease);
+}
+
+.nav-link {
+  color: var(--app-text-secondary);
+}
+
+.nav-link:hover {
+  color: var(--app-gold);
+  background: var(--app-gold-subtle);
+}
+
+.nav-link-active {
+  color: var(--app-gold);
+  font-weight: 700;
+  background: var(--app-gold-subtle);
+  box-shadow: inset 0 0 0 1px var(--app-gold-border);
+}
+
+.nav-link:focus-visible,
+.nav-link-active:focus-visible {
+  outline: 2px solid var(--app-gold);
+  outline-offset: 2px;
+}
+
+/* Mobile nav drawer */
+.nav-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  z-index: 40;
+  background: color-mix(in srgb, var(--app-bg) 55%, rgba(0, 0, 0, 0.55));
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border: 0;
+  cursor: default;
+  animation: nav-scrim-in 200ms ease;
+}
+
+.nav-drawer {
+  position: relative;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem 1.1rem;
+  border-top: 1px solid var(--app-nav-border);
+  border-bottom: 1px solid var(--app-nav-border);
+  background: color-mix(in srgb, var(--app-bg) 94%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--shadow-elevated);
+  animation: nav-drawer-in 220ms var(--md-ease-out, ease);
+}
+
+.nav-drawer-link {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--radius-md, 0.875rem);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--app-text-secondary);
+  transition:
+    color var(--md-duration-fast, 180ms) ease,
+    background var(--md-duration-fast, 180ms) ease;
+}
+
+.nav-drawer-link:hover,
+.nav-drawer-link:focus-visible {
+  color: var(--app-gold);
+  background: var(--app-gold-subtle);
+  outline: none;
+}
+
+.nav-drawer-link-active {
+  color: var(--app-gold);
+  background: var(--app-gold-subtle);
+  box-shadow: inset 0 0 0 1px var(--app-gold-border);
+}
+
+.nav-drawer-divider {
+  height: 1px;
+  margin: 0.4rem 0;
+  background: var(--app-border);
+}
+
+.nav-drawer-user {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--app-text-muted);
+}
+
+@keyframes nav-scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes nav-drawer-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-drawer,
+  .nav-drawer-scrim {
+    animation: none;
+  }
+}
+
+.hover-surface:hover {
+  background: var(--md-surface-hover);
+}
+
+/* Light theme: remap legacy Tailwind gray utilities on non-MatchDay pages */
+[data-theme="light"] .text-gray-300 {
+  color: var(--app-text-secondary);
+}
+[data-theme="light"] .text-gray-400 {
+  color: var(--app-text-muted);
+}
+[data-theme="light"] .text-gray-500,
+[data-theme="light"] .text-gray-600 {
+  color: var(--app-text-faint);
+}
+[data-theme="light"] .border-gray-600 {
+  border-color: var(--app-border);
+}
+[data-theme="light"] .bg-night,
+[data-theme="light"] .bg-night\/50,
+[data-theme="light"] .bg-night\/90 {
+  background-color: var(--input-bg);
+}

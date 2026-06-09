@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="k26-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141a30"/>
+      <stop offset="1" stop-color="#070a14"/>
+    </linearGradient>
+    <linearGradient id="k26-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6dd8e"/>
+      <stop offset="0.52" stop-color="#d4af37"/>
+      <stop offset="1" stop-color="#9a6f23"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#k26-bg)"/>
+  <g fill="url(#k26-gold)" transform="translate(32 33) scale(0.8) translate(-32 -33)">
+    <polygon points="32,3 33.5,6.9 37.7,7.2 34.5,9.8 35.5,13.9 32,11.6 28.5,13.9 29.5,9.8 26.3,7.2 30.5,6.9" opacity="0.92"/>
+    <rect x="18" y="15" width="28" height="5" rx="2.5"/>
+    <path d="M20 20 H44 L40 33 C38 39 35 42 32 42 C29 42 26 39 24 33 Z"/>
+    <path d="M19 21 C9 22 9 35 20 38 L20 34.5 C13.5 32.5 13.5 24.5 20 23.5 Z"/>
+    <path d="M45 21 C55 22 55 35 44 38 L44 34.5 C50.5 32.5 50.5 24.5 44 23.5 Z"/>
+    <path d="M28 42 H36 L34.5 49 H29.5 Z"/>
+    <rect x="24" y="49" width="16" height="4.5" rx="1.5"/>
+    <rect x="19" y="53.5" width="26" height="5.5" rx="2"/>
+  </g>
+</svg>
