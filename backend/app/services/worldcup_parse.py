@@ -126,15 +126,49 @@ def parse_scorers_raw(raw: Any) -> list:
     if isinstance(raw, list):
         return raw
     if isinstance(raw, str):
-        s = raw.strip()
+        s = _normalize_quotes(raw.strip())
         if s.lower() in ("null", "", "[]", "none"):
             return []
         try:
             parsed = json.loads(s)
-            return parsed if isinstance(parsed, list) else []
+            if isinstance(parsed, list):
+                return parsed
+            if isinstance(parsed, dict):
+                return [parsed]
         except json.JSONDecodeError:
-            return []
+            pass
+        # API often returns {"Name 9'","Name 67'"} with curly quotes (not valid JSON array).
+        if s.startswith("{") and s.endswith("}"):
+            inner = s[1:-1]
+            quoted = re.findall(r'"([^"]+)"', inner) or re.findall(r"'([^']+)'", inner)
+            if quoted:
+                return quoted
+        if s.startswith("[") and s.endswith("]"):
+            inner = s[1:-1]
+            quoted = re.findall(r'"([^"]+)"', inner) or re.findall(r"'([^']+)'", inner)
+            if quoted:
+                return quoted
     return []
+
+
+def _normalize_quotes(text: str) -> str:
+    return (
+        text.replace("\u201c", '"')
+        .replace("\u201d", '"')
+        .replace("\u2018", "'")
+        .replace("\u2019", "'")
+    )
+
+
+_SCORER_MINUTE = re.compile(r"^(?P<name>.+?)\s+(?P<minute>\d+)['\u2019]?\s*$")
+
+
+def _parse_scorer_string(entry: str) -> tuple[str, int]:
+    text = _normalize_quotes(entry.strip())
+    match = _SCORER_MINUTE.match(text)
+    if match:
+        return match.group("name").strip(), int(match.group("minute"))
+    return text, 0
 
 
 def parse_scorer_events(game: dict) -> list[dict]:
@@ -145,8 +179,7 @@ def parse_scorer_events(game: dict) -> list[dict]:
                 player = _first(entry, "scorer", "name", "player") or "Unknown player"
                 minute = parse_int(_first(entry, "minute", "time", "timestamp", "elapsed")) or 0
             else:
-                player = str(entry)
-                minute = 0
+                player, minute = _parse_scorer_string(str(entry))
             out.append(
                 {"type": "goal", "minute": minute, "team": side, "player": str(player).strip()}
             )

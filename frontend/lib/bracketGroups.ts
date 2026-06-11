@@ -44,8 +44,18 @@ function emptyRow(code: string, name: string): StandingRow {
   };
 }
 
-function standingSortKey(row: StandingRow): [number, number, number] {
-  return [row.points, row.gd, row.gf];
+function standingSortKey(row: StandingRow): [number, number, number, string] {
+  const gd = row.gf - row.ga;
+  const name = (row.name || row.code).toLowerCase();
+  return [-row.points, -gd, -row.gf, name];
+}
+
+function compareStandingKeys(a: ReturnType<typeof standingSortKey>, b: ReturnType<typeof standingSortKey>): number {
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] < b[i]) return -1;
+    if (a[i] > b[i]) return 1;
+  }
+  return 0;
 }
 
 export function applyMatchResult(
@@ -74,6 +84,8 @@ export function applyMatchResult(
     home.points += 1;
     away.points += 1;
   }
+  home.gd = home.gf - home.ga;
+  away.gd = away.gf - away.ga;
 }
 
 export function computeGroupStandings(
@@ -92,14 +104,9 @@ export function computeGroupStandings(
     applyMatchResult(home, away, result.home_score, result.away_score);
   }
 
-  const sorted = Object.values(rows).sort((a, b) => {
-    const ka = standingSortKey(a);
-    const kb = standingSortKey(b);
-    for (let i = 0; i < 3; i++) {
-      if (kb[i] !== ka[i]) return kb[i] - ka[i];
-    }
-    return 0;
-  });
+  const sorted = Object.values(rows).sort((a, b) =>
+    compareStandingKeys(standingSortKey(a), standingSortKey(b))
+  );
 
   return sorted.map((row, i) => ({
     ...row,
@@ -125,14 +132,7 @@ export function rankThirdPlaced(standingsByGroup: Record<string, StandingRow[]>)
   for (const rows of Object.values(standingsByGroup)) {
     if (rows.length >= 3) thirds.push(rows[2]);
   }
-  thirds.sort((a, b) => {
-    const ka = standingSortKey(a);
-    const kb = standingSortKey(b);
-    for (let i = 0; i < 3; i++) {
-      if (kb[i] !== ka[i]) return kb[i] - ka[i];
-    }
-    return 0;
-  });
+  thirds.sort((a, b) => compareStandingKeys(standingSortKey(a), standingSortKey(b)));
   return thirds.slice(0, 8).map((r) => r.code);
 }
 

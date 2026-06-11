@@ -58,8 +58,10 @@ async def lifespan(app: FastAPI):
     yield
 
     from app.services.sim_job_manager import sim_job_manager
+    from app.services.worldcup_api import close_shared_http_client
 
     sim_job_manager.shutdown()
+    await close_shared_http_client()
     for task in (_live_task, _lineup_task, _roster_task):
         if task:
             task.cancel()

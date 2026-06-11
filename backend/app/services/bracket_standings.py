@@ -43,7 +43,15 @@ def _empty_row(code: str, name: str) -> dict:
 
 
 def _standing_sort_key(row: dict) -> tuple:
-    return (row["points"], row["gd"], row["gf"])
+    """Descending: points, GD, GF; then ascending name for a stable order."""
+    gf = int(row.get("gf") or 0)
+    ga = int(row.get("ga") or 0)
+    if "ga" in row:
+        gd = gf - ga
+    else:
+        gd = int(row.get("gd") if row.get("gd") is not None else gf - ga)
+    name = (row.get("name") or row.get("code") or "").casefold()
+    return (-int(row.get("points") or 0), -gd, -gf, name)
 
 
 def apply_match_result(home: dict, away: dict, hs: int, aws: int) -> None:
@@ -66,6 +74,8 @@ def apply_match_result(home: dict, away: dict, hs: int, aws: int) -> None:
         away["drawn"] += 1
         home["points"] += 1
         away["points"] += 1
+    home["gd"] = home["gf"] - home["ga"]
+    away["gd"] = away["gf"] - away["ga"]
 
 
 def compute_group_standings(
@@ -89,7 +99,7 @@ def compute_group_standings(
             continue
         apply_match_result(rows[home_code], rows[away_code], hs, aws)
 
-    sorted_rows = sorted(rows.values(), key=_standing_sort_key, reverse=True)
+    sorted_rows = sorted(rows.values(), key=_standing_sort_key)
     for i, row in enumerate(sorted_rows, start=1):
         row["rank"] = i
         row["gd"] = row["gf"] - row["ga"]
@@ -113,7 +123,7 @@ def rank_third_placed(standings_by_group: dict[str, list[StandingRow]]) -> list[
     for rows in standings_by_group.values():
         if len(rows) >= 3:
             thirds.append(rows[2])
-    thirds.sort(key=_standing_sort_key, reverse=True)
+    thirds.sort(key=_standing_sort_key)
     return [r["code"] for r in thirds[:8]]
 
 

@@ -123,35 +123,35 @@ async def _broadcast_match_update(db: AsyncSession, match: Match, pre_probs: dic
     await ws_manager.broadcast("matches:live", payload)
 
 
-def _goal_alerts_from_score_delta(
+def _goal_events_from_score_delta(
     match: Match,
     *,
     old_home: int | None,
     old_away: int | None,
-    inserted_goals: list[dict],
+    parsed_goals: list[dict],
 ) -> list[dict]:
-    """Emit goal alerts for score increases not already covered by new scorer rows."""
+    """Timeline goal rows for score increases not already covered by parsed scorers."""
     new_home = match.home_score or 0
     new_away = match.away_score or 0
     home_delta = max(0, new_home - (old_home or 0))
     away_delta = max(0, new_away - (old_away or 0))
     home_from_scorers = sum(
-        1 for ev in inserted_goals if ev.get("type") == "goal" and ev.get("team") == "home"
+        1 for ev in parsed_goals if ev.get("type") == "goal" and ev.get("team") == "home"
     )
     away_from_scorers = sum(
-        1 for ev in inserted_goals if ev.get("type") == "goal" and ev.get("team") == "away"
+        1 for ev in parsed_goals if ev.get("type") == "goal" and ev.get("team") == "away"
     )
-    alerts: list[dict] = []
+    events: list[dict] = []
     minute = match.minute or 0
     for _ in range(home_delta - home_from_scorers):
-        alerts.append(
+        events.append(
             {"type": "goal", "minute": minute, "team": "home", "player": UNKNOWN_PLAYER}
         )
     for _ in range(away_delta - away_from_scorers):
-        alerts.append(
+        events.append(
             {"type": "goal", "minute": minute, "team": "away", "player": UNKNOWN_PLAYER}
         )
-    return alerts
+    return events
 
 
 async def apply_game_snapshot(
@@ -220,16 +220,16 @@ async def apply_game_snapshot(
             )
 
     parsed_goals = parse_scorer_events(game)
-    inserted = await insert_new_events(db, match.id, parsed_goals) if parsed_goals else []
+    score_delta_goals = _goal_events_from_score_delta(
+        match, old_home=old_home, old_away=old_away, parsed_goals=parsed_goals
+    )
+    timeline_goals = parsed_goals + score_delta_goals
+    inserted = await insert_new_events(db, match.id, timeline_goals) if timeline_goals else []
 
     if emit_alerts:
         for ev in inserted:
             if ev.get("type") == "goal":
                 await broadcast_alert(build_event_alert(match, ev), match.id)
-        for ev in _goal_alerts_from_score_delta(
-            match, old_home=old_home, old_away=old_away, inserted_goals=inserted
-        ):
-            await broadcast_alert(build_event_alert(match, ev), match.id)
 
     enriched = await enrich_match_probs(match, events=await fetch_events_for_match(db, match.id))
     if emit_alerts and score_changed:

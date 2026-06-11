@@ -55,7 +55,7 @@ async def compute_live_standings(db: AsyncSession) -> dict:
     # Rank each group.
     standings: dict[str, list[dict]] = {}
     for grp, rows in groups.items():
-        ordered = sorted(rows.values(), key=_standing_sort_key, reverse=True)
+        ordered = sorted(rows.values(), key=_standing_sort_key)
         for i, row in enumerate(ordered, start=1):
             row["rank"] = i
             row["gd"] = row["gf"] - row["ga"]
@@ -63,7 +63,7 @@ async def compute_live_standings(db: AsyncSession) -> dict:
 
     # Best 8 third-placed teams.
     thirds = [rows[2] for rows in standings.values() if len(rows) >= 3]
-    thirds_sorted = sorted(thirds, key=_standing_sort_key, reverse=True)
+    thirds_sorted = sorted(thirds, key=_standing_sort_key)
     third_codes = {r["code"] for r in thirds_sorted[:8]}
 
     out_groups = []

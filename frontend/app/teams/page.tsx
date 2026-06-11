@@ -187,10 +187,10 @@ export default function TeamsPage() {
         <>
           <header className="teams-header">
             <div>
-              <h1 className="md-page-title">Teams &amp; Stats</h1>
+              <h1 className="md-page-title">Teams</h1>
               <p className="teams-sub">
                 All 48 nations of the 2026 tournament, grouped A-L. Tap a team for its fixtures
-                and venue context. Data is sourced from the live tournament feed.
+                and venue context.
               </p>
             </div>
           </header>

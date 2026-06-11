@@ -22,6 +22,7 @@ Rate limit: 500 requests / 60s per IP. Cadence is controlled by the poller.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -33,7 +34,12 @@ from app.services.worldcup_rate_limit import get_rate_stats, record_429, record_
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://worldcup26.ir"
-REQUEST_TIMEOUT = 20
+CONNECT_TIMEOUT = 15.0
+READ_TIMEOUT = 60.0
+MAX_ATTEMPTS = 4
+RETRY_BACKOFF_BASE = 0.75
+
+_shared_client: httpx.AsyncClient | None = None
 
 
 def _unwrap(data: Any, *keys: str) -> Any:
@@ -46,6 +52,64 @@ def _unwrap(data: Any, *keys: str) -> Any:
                 return data[key]
         return data
     return data
+
+
+def _safe_body_preview(resp: httpx.Response, limit: int = 400) -> str:
+    try:
+        text = resp.text
+    except Exception as exc:
+        return f"<unreadable body: {type(exc).__name__}>"
+    text = text.replace("\n", " ").strip()
+    return text[:limit] if text else "<empty>"
+
+
+def _log_request_failure(
+    *,
+    path: str,
+    url: str,
+    exc: BaseException | None = None,
+    resp: httpx.Response | None = None,
+    attempt: int | None = None,
+) -> None:
+    parts = [f"WorldCup API failure GET {path}"]
+    if attempt is not None:
+        parts.append(f"attempt={attempt}/{MAX_ATTEMPTS}")
+    parts.append(f"url={url}")
+    if resp is not None:
+        parts.append(f"status={resp.status_code}")
+        parts.append(f"body={_safe_body_preview(resp)}")
+    if exc is not None:
+        parts.append(f"error={type(exc).__name__}")
+        detail = str(exc).strip() or repr(exc)
+        parts.append(f"detail={detail}")
+        if exc.__cause__:
+            parts.append(f"cause={type(exc.__cause__).__name__}:{exc.__cause__!r}")
+    logger.warning(" | ".join(parts))
+
+
+async def _shared_http_client(*, force_new: bool = False) -> httpx.AsyncClient:
+    """Reuse one HTTP/2 client; recreate when connections go stale (EndOfStream on Windows)."""
+    global _shared_client
+    if force_new and _shared_client is not None:
+        try:
+            await _shared_client.aclose()
+        except Exception:
+            pass
+        _shared_client = None
+    if _shared_client is None or _shared_client.is_closed:
+        _shared_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(READ_TIMEOUT, connect=CONNECT_TIMEOUT),
+            http2=True,
+            limits=httpx.Limits(max_keepalive_connections=4, max_connections=8),
+        )
+    return _shared_client
+
+
+async def close_shared_http_client() -> None:
+    global _shared_client
+    if _shared_client is not None:
+        await _shared_client.aclose()
+        _shared_client = None
 
 
 class WorldCupApiClient:
@@ -65,6 +129,25 @@ class WorldCupApiClient:
             headers["Authorization"] = f"Bearer {self.token}"
         return headers
 
+    async def _try_refresh_token(self) -> bool:
+        email = settings.worldcup_api_email
+        password = settings.worldcup_api_password
+        if not email or not password:
+            logger.error(
+                "WorldCup API token rejected - set WORLDCUP_API_TOKEN or "
+                "WORLDCUP_API_EMAIL/PASSWORD for auto re-authentication"
+            )
+            return False
+        token = await self.authenticate(email, password)
+        if not token:
+            return False
+        self.token = token
+        logger.warning(
+            "WorldCup API token refreshed via authenticate - "
+            "update WORLDCUP_API_TOKEN in .env to persist across restarts"
+        )
+        return True
+
     async def _get(self, path: str, params: dict | None = None) -> Any:
         if not self.token:
             logger.warning("WORLDCUP_API_TOKEN not set - skipping GET %s", path)
@@ -72,28 +155,61 @@ class WorldCupApiClient:
         if not await wait_if_needed():
             logger.warning("WorldCup API rate guard active - skipping GET %s", path)
             return None
+
         url = f"{self.base_url}{path}"
-        try:
-            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        refreshed = False
+        reset_client = False
+
+        for attempt in range(1, MAX_ATTEMPTS + 1):
+            client = await _shared_http_client(force_new=reset_client)
+            reset_client = False
+            try:
                 resp = await client.get(url, params=params or {}, headers=self._headers())
-        except httpx.HTTPError as exc:
-            logger.warning("WorldCup API HTTP error on %s: %s", path, exc)
-            return None
-        record_request()
-        if resp.status_code == 401:
-            logger.error("WorldCup API 401 on %s - token invalid/expired (re-authenticate)", path)
-            return None
-        if resp.status_code == 429:
-            record_429()
-            return None
-        if resp.status_code != 200:
-            logger.warning("WorldCup API %s returned %s", path, resp.status_code)
-            return None
-        try:
-            return resp.json()
-        except ValueError:
-            logger.warning("WorldCup API %s returned non-JSON body", path)
-            return None
+            except httpx.HTTPError as exc:
+                _log_request_failure(path=path, url=url, exc=exc, attempt=attempt)
+                reset_client = True
+                if attempt < MAX_ATTEMPTS:
+                    await asyncio.sleep(RETRY_BACKOFF_BASE * (2 ** (attempt - 1)))
+                    continue
+                return None
+
+            record_request()
+
+            if resp.status_code in (401, 403):
+                _log_request_failure(path=path, url=url, resp=resp, attempt=attempt)
+                if not refreshed and resp.status_code == 401:
+                    refreshed = await self._try_refresh_token()
+                    if refreshed:
+                        continue
+                return None
+
+            if resp.status_code == 429:
+                record_429()
+                _log_request_failure(path=path, url=url, resp=resp, attempt=attempt)
+                if attempt < MAX_ATTEMPTS:
+                    await asyncio.sleep(RETRY_BACKOFF_BASE * (2 ** attempt))
+                    continue
+                return None
+
+            if resp.status_code >= 500:
+                _log_request_failure(path=path, url=url, resp=resp, attempt=attempt)
+                reset_client = True
+                if attempt < MAX_ATTEMPTS:
+                    await asyncio.sleep(RETRY_BACKOFF_BASE * (2 ** (attempt - 1)))
+                    continue
+                return None
+
+            if resp.status_code != 200:
+                _log_request_failure(path=path, url=url, resp=resp, attempt=attempt)
+                return None
+
+            try:
+                return resp.json()
+            except ValueError as exc:
+                _log_request_failure(path=path, url=url, resp=resp, exc=exc, attempt=attempt)
+                return None
+
+        return None
 
     @staticmethod
     def rate_stats() -> dict:
@@ -140,13 +256,13 @@ class WorldCupApiClient:
         """POST /auth/authenticate -> JWT token (valid ~84 days)."""
         url = f"{self.base_url}/auth/authenticate"
         try:
-            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-                resp = await client.post(url, json={"email": email, "password": password})
+            client = await _shared_http_client()
+            resp = await client.post(url, json={"email": email, "password": password})
         except httpx.HTTPError as exc:
-            logger.warning("WorldCup API authenticate error: %s", exc)
+            _log_request_failure(path="/auth/authenticate", url=url, exc=exc)
             return None
         if resp.status_code not in (200, 201):
-            logger.warning("WorldCup API authenticate returned %s: %s", resp.status_code, resp.text[:200])
+            _log_request_failure(path="/auth/authenticate", url=url, resp=resp)
             return None
         body = resp.json()
         if isinstance(body, dict):
@@ -160,13 +276,13 @@ class WorldCupApiClient:
         if name:
             payload["name"] = name
         try:
-            async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
-                resp = await client.post(url, json=payload)
+            client = await _shared_http_client()
+            resp = await client.post(url, json=payload)
         except httpx.HTTPError as exc:
-            logger.warning("WorldCup API register error: %s", exc)
+            _log_request_failure(path="/auth/register", url=url, exc=exc)
             return None
         if resp.status_code not in (200, 201):
-            logger.warning("WorldCup API register returned %s: %s", resp.status_code, resp.text[:200])
+            _log_request_failure(path="/auth/register", url=url, resp=resp)
             return None
         body = resp.json()
         if isinstance(body, dict):

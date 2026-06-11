@@ -7,6 +7,22 @@ export type SimResultPayload = {
   most_likely_bracket?: Record<string, unknown>;
 };
 
+export type SimJobPoll = {
+  job_id: string;
+  status: string;
+  iterations: number;
+  progress?: { done: number; total: number };
+  result?: SimResultPayload;
+  error?: string | null;
+  channel?: string | null;
+};
+
+/** Poll budget aligned with backend SIM_TIMEOUT_SEC (600s) and heavy runs (~4ms/iter). */
+export function simPollDeadlineMs(iterations: number): number {
+  const estimatedMs = iterations * 6 + 45_000;
+  return Math.min(590_000, Math.max(90_000, estimatedMs));
+}
+
 export function extractMostLikelyPath(
   result: SimResultPayload | Record<string, unknown> | null | undefined
 ): MostLikelyPathData | null {
@@ -53,22 +69,8 @@ export function extractMostLikelyPath(
       },
     ],
     final: {
-      teams: finalTeams.length >= 2 ? finalTeams : [String(bracket.champion), String(bracket.champion)],
+      teams: finalTeams,
       champion: String(bracket.champion),
     },
   };
 }
-
-export function topChampionCode(result: SimResultPayload | null | undefined): string | null {
-  const stats = result?.team_stats?.champion;
-  if (!stats) return null;
-  const sorted = Object.entries(stats).sort((a, b) => b[1] - a[1]);
-  return sorted[0]?.[0] ?? null;
-}
-
-export type SimJobPoll = {
-  status: string;
-  progress?: { done: number; total: number };
-  result?: SimResultPayload;
-  error?: string;
-};

@@ -90,6 +90,21 @@ class TestWorldcupParse:
     def test_scorers_null_string(self):
         assert parse_scorer_events(SAMPLE_GAME) == []
 
+    def test_scorers_api_curly_brace_format(self):
+        """Real API returns braced comma-separated strings with smart quotes."""
+        raw = "{\u201cJ. Qui\u00f1ones 9'\u201d,\u201cR. Jim\u00e9nez 67'\u201d}"
+        game = {
+            **SAMPLE_GAME,
+            "home_score": "2",
+            "away_score": "0",
+            "home_scorers": raw,
+            "away_scorers": "null",
+        }
+        events = parse_scorer_events(game)
+        assert len(events) == 2
+        assert events[0] == {"type": "goal", "minute": 9, "team": "home", "player": "J. Quiñones"}
+        assert events[1] == {"type": "goal", "minute": 67, "team": "home", "player": "R. Jiménez"}
+
     def test_local_date_parsing(self):
         kickoff, cal = parse_local_date("06/13/2026 21:00", city_en="Vancouver")
         assert kickoff is not None

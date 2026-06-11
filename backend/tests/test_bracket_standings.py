@@ -17,6 +17,33 @@ def _team(code: str, name: str | None = None) -> dict:
     return {"id": 1, "code": code, "name": name or code}
 
 
+def test_group_a_loser_ranks_below_unplayed_on_equal_points():
+    """Mexico 2-0 South Africa: RSA (-2 GD) must be 4th, below KOR/CZE at 0 GD."""
+    teams = [
+        _team("MEX", "Mexico"),
+        _team("RSA", "South Africa"),
+        _team("KOR", "South Korea"),
+        _team("CZE", "Czech Republic"),
+    ]
+    fixtures = [
+        {"id": 1, "home": {"code": "MEX"}, "away": {"code": "RSA"}},
+        {"id": 2, "home": {"code": "KOR"}, "away": {"code": "CZE"}},
+    ]
+    results = {1: {"home_score": 2, "away_score": 0}}
+    rows = compute_group_standings(teams, fixtures, results)
+    codes = [r["code"] for r in rows]
+
+    assert codes[0] == "MEX"
+    assert codes[1] == "CZE"
+    assert codes[2] == "KOR"
+    assert codes[3] == "RSA"
+    assert rows[0]["points"] == 3
+    assert rows[0]["gd"] == 2
+    assert rows[3]["points"] == 0
+    assert rows[3]["gd"] == -2
+    assert rows[3]["lost"] == 1
+
+
 def test_standings_points_and_tiebreaker_gd():
     teams = [_team("AAA"), _team("BBB"), _team("CCC"), _team("DDD")]
     fixtures = [

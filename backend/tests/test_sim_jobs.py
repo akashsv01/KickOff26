@@ -25,7 +25,11 @@ def assert_complete_sim_result(result: dict) -> None:
     assert path["final"]["champion"] == top_code
 
 
-async def _poll_until_complete(client: AsyncClient, task_id: str, timeout_sec: float = 120) -> dict:
+async def _poll_until_complete(
+    client: AsyncClient,
+    task_id: str,
+    timeout_sec: float = 600,
+) -> dict:
     deadline = time.monotonic() + timeout_sec
     while time.monotonic() < deadline:
         poll = await client.get(f"/api/bracket/simulate/jobs/{task_id}")
@@ -33,9 +37,9 @@ async def _poll_until_complete(client: AsyncClient, task_id: str, timeout_sec: f
         body = poll.json()
         if body["status"] == "complete":
             return body
-        if body["status"] == "failed":
+        if body["status"] in ("failed", "cancelled"):
             pytest.fail(body.get("error", "simulation failed"))
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.35)
     pytest.fail("simulation did not complete in time")
 
 
@@ -43,6 +47,8 @@ async def _poll_until_complete(client: AsyncClient, task_id: str, timeout_sec: f
 def _reset_sim_jobs():
     sim_job_manager._jobs.clear()
     sim_job_manager._user_active.clear()
+    sim_job_manager._running_tasks.clear()
+    sim_job_manager._futures.clear()
     yield
     sim_job_manager.shutdown()
     sim_job_manager._manager = None
@@ -95,16 +101,7 @@ async def test_health_stays_responsive_during_simulation(client: AsyncClient):
         assert health.json()["status"] == "ok"
         await asyncio.sleep(0.05)
 
-    deadline = time.monotonic() + 120
-    while time.monotonic() < deadline:
-        poll = await client.get(f"/api/bracket/simulate/jobs/{task_id}")
-        if poll.json()["status"] == "complete":
-            return
-        if poll.json()["status"] == "failed":
-            pytest.fail(poll.json().get("error"))
-        await asyncio.sleep(0.2)
-
-    pytest.fail("simulation did not complete")
+    await _poll_until_complete(client, task_id)
 
 
 @pytest.mark.asyncio
@@ -124,7 +121,7 @@ async def test_simulation_runs_via_executor_not_inline():
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
             j = sim_job_manager.get_job(job.job_id)
-            if j and j.status.value in ("complete", "failed"):
+            if j and j.status.value in ("complete", "failed", "cancelled"):
                 break
             await asyncio.sleep(0.1)
         assert j is not None
@@ -135,25 +132,55 @@ async def test_simulation_runs_via_executor_not_inline():
 
 
 @pytest.mark.asyncio
-async def test_rejects_overlapping_runs_for_same_user(client: AsyncClient):
+async def test_new_run_replaces_in_progress_job(client: AsyncClient):
     first = await client.post("/api/bracket/simulate/quick", json={"iterations": 2000})
     assert first.status_code == 200
 
     second = await client.post("/api/bracket/simulate/quick", json={"iterations": 500})
-    assert second.status_code == 409
+    assert second.status_code == 200
+    assert second.json()["task_id"] != first.json()["task_id"]
 
-    task_id = first.json()["task_id"]
-    deadline = time.monotonic() + 120
-    while time.monotonic() < deadline:
-        poll = await client.get(f"/api/bracket/simulate/jobs/{task_id}")
-        if poll.json()["status"] == "complete":
-            return
-        await asyncio.sleep(0.2)
+    first_job = sim_job_manager.get_job(first.json()["task_id"])
+    assert first_job is not None
+    assert first_job.status.value == "cancelled"
 
-    pytest.fail("first simulation did not finish")
+    body = await _poll_until_complete(client, second.json()["task_id"])
+    assert body["result"]["iterations"] == 500
+
+
+@pytest.mark.asyncio
+async def test_back_to_back_runs_after_complete(client: AsyncClient):
+    first = await client.post("/api/bracket/simulate/quick", json={"iterations": 300})
+    assert first.status_code == 200
+    await _poll_until_complete(client, first.json()["task_id"])
+
+    second = await client.post("/api/bracket/simulate/quick", json={"iterations": 300})
+    assert second.status_code == 200
+    body = await _poll_until_complete(client, second.json()["task_id"])
+    assert body["result"]["iterations"] == 300
 
 
 @pytest.mark.asyncio
 async def test_rejects_iterations_above_cap(client: AsyncClient):
     res = await client.post("/api/bracket/simulate/quick", json={"iterations": 75000})
     assert res.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_fifty_thousand_iterations_complete_quick(client: AsyncClient):
+    start = await client.post("/api/bracket/simulate/quick", json={"iterations": 50_000})
+    assert start.status_code == 200
+    body = await _poll_until_complete(client, start.json()["task_id"], timeout_sec=580)
+    assert body["result"]["iterations"] == 50_000
+    assert_complete_sim_result(body["result"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.slow
+async def test_fifty_thousand_iterations_complete_live(client: AsyncClient):
+    start = await client.post("/api/bracket/simulate", json={"iterations": 50_000})
+    assert start.status_code == 200
+    body = await _poll_until_complete(client, start.json()["task_id"], timeout_sec=580)
+    assert body["result"]["iterations"] == 50_000
+    assert_complete_sim_result(body["result"])

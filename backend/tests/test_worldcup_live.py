@@ -162,6 +162,71 @@ async def test_apply_snapshot_goal_and_status_alerts_only_from_real_diff(setup_d
 
 
 @pytest.mark.asyncio
+async def test_apply_snapshot_persists_api_scorer_format(setup_db, monkeypatch):
+    from app.db import async_session
+
+    monkeypatch.setattr("app.services.matchday_alerts.broadcast_alert", AsyncMock())
+    monkeypatch.setattr("app.services.worldcup_live.emit_prob_momentum", AsyncMock())
+
+    raw_scorers = "{\u201cJ. Qui\u00f1ones 9'\u201d,\u201cR. Jim\u00e9nez 67'\u201d}"
+
+    async with async_session() as db:
+        teams_by_seq = await upsert_teams(db, [SAMPLE_TEAM_AUS, SAMPLE_TEAM_TUR])
+        stadiums_by_seq = await upsert_stadiums(db, [SAMPLE_STADIUM])
+        await upsert_games(
+            db,
+            [SAMPLE_GAME],
+            teams_by_seq=teams_by_seq,
+            stadiums_by_seq=stadiums_by_seq,
+        )
+        match = (
+            await db.execute(select(Match).where(Match.api_object_id == SAMPLE_GAME["_id"]))
+        ).scalar_one()
+        match.status = MatchStatus.LIVE
+        match.home_score = 0
+        match.away_score = 0
+        match.minute = 67
+        await db.execute(
+            MatchEvent.__table__.delete().where(MatchEvent.match_id == match.id)
+        )
+        await db.commit()
+
+    async with async_session() as db:
+        code_map = await build_code_map(db)
+        oid_map = await build_game_object_id_map(db)
+        teams_by_seq = await upsert_teams(db, [SAMPLE_TEAM_AUS, SAMPLE_TEAM_TUR])
+        await apply_game_snapshot(
+            db,
+            {
+                **SAMPLE_GAME,
+                "time_elapsed": "67",
+                "home_score": "2",
+                "away_score": "0",
+                "home_scorers": raw_scorers,
+                "away_scorers": "null",
+            },
+            code_map=code_map,
+            oid_map=oid_map,
+            teams_by_seq=teams_by_seq,
+            emit_alerts=False,
+        )
+        await db.commit()
+        match = (
+            await db.execute(select(Match).where(Match.api_object_id == SAMPLE_GAME["_id"]))
+        ).scalar_one()
+        events = (
+            await db.execute(
+                select(MatchEvent).where(MatchEvent.match_id == match.id).order_by(MatchEvent.minute)
+            )
+        ).scalars().all()
+        assert len(events) == 2
+        assert events[0].player_name == "J. Quiñones"
+        assert events[0].minute == 9
+        assert events[1].player_name == "R. Jiménez"
+        assert events[1].minute == 67
+
+
+@pytest.mark.asyncio
 async def test_no_broadcast_when_snapshot_unchanged(setup_db, monkeypatch):
     from app.db import async_session
 

@@ -33,6 +33,7 @@ import { api, API_URL } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   extractMostLikelyPath,
+  simPollDeadlineMs,
   type SimJobPoll,
   type SimResultPayload,
 } from "@/lib/simResults";
@@ -121,10 +122,12 @@ export default function BracketPage() {
       taskId: string,
       options?: {
         liveMode?: boolean;
+        iterationCount?: number;
         onProgress?: (progress: { done: number; total: number }) => void;
       }
     ): Promise<SimResultPayload> => {
-      const deadline = Date.now() + 120_000;
+      const deadline =
+        Date.now() + simPollDeadlineMs(options?.iterationCount ?? iterations);
       while (Date.now() < deadline) {
         const job = await api<SimJobPoll>(`/bracket/simulate/jobs/${taskId}`);
         if (options?.onProgress && job.progress) {
@@ -133,14 +136,16 @@ export default function BracketPage() {
         if (job.status === "complete" && job.result) {
           return job.result;
         }
-        if (job.status === "failed") {
+        if (job.status === "failed" || job.status === "cancelled") {
           throw new Error(job.error ?? "Simulation failed");
         }
-        await new Promise((r) => setTimeout(r, options?.liveMode ? 350 : 400));
+        await new Promise((r) => setTimeout(r, options?.liveMode ? 350 : 500));
       }
-      throw new Error("Simulation timed out - try fewer iterations or use Simulate (Live)");
+      throw new Error(
+        "Simulation is still running on the server — wait for it to finish or start a new run"
+      );
     },
-    []
+    [iterations]
   );
 
   const finishSimulation = useCallback(
@@ -442,6 +447,7 @@ export default function BracketPage() {
 
       pollSimJob(taskId, {
         liveMode: true,
+        iterationCount: iterations,
         onProgress: (p) => {
           if (!simFinishRef.current) setProgress(p);
         },
@@ -479,7 +485,7 @@ export default function BracketPage() {
         method: "POST",
         body: JSON.stringify({ iterations }),
       });
-      const result = await pollSimJob(start.task_id);
+      const result = await pollSimJob(start.task_id, { iterationCount: iterations });
       finishSimulation(result);
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Simulation failed");
