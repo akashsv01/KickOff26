@@ -24,7 +24,7 @@ def sample_match_result(
 ) -> str:
     """
     Sample a match outcome: 'home', 'draw', or 'away'.
-    Used by Monte Carlo simulator — never duplicate probability logic elsewhere.
+    Used by Monte Carlo simulator - never duplicate probability logic elsewhere.
     """
     probs = resolve_match_probs(home_code, away_code, neutral=neutral)
     rng = rng or np.random.default_rng()

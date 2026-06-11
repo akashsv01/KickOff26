@@ -192,12 +192,12 @@ def _simulate_knockout_round(
 
 
 def _knockout_winner(home: str, away: str, rng: np.random.Generator) -> str:
-    """Knockout: no draws — replay/penalties if needed."""
+    """Knockout: no draws - replay/penalties if needed."""
     for _ in range(3):
         outcome = sample_match_result(home, away, rng=rng, neutral=True)
         if outcome != "draw":
             return get_winner_code(home, away, outcome)  # type: ignore
-    # Penalty shootout — favor higher Elo team slightly
+    # Penalty shootout - favor higher Elo team slightly
     probs = resolve_match_probs(home, away, neutral=True)
     return home if probs["home"] >= probs["away"] else away
 

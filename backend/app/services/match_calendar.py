@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Protocol
 from zoneinfo import ZoneInfo
 
-# FIFA official schedule PDF displays all times in Eastern Time (ET).
+# Official 2026 schedule PDF displays all times in Eastern Time (ET).
 SCHEDULE_CALENDAR_TZ = ZoneInfo("America/New_York")
 
 
@@ -40,7 +40,7 @@ def match_calendar_date(match: HasLocalDate | dict) -> str | None:
 
 
 def summarize_match_days(matches: list) -> list[dict]:
-    """Sorted dates with fixture counts — same logic used for badges and lists."""
+    """Sorted dates with fixture counts - same logic used for badges and lists."""
     counts: dict[str, int] = {}
     for m in matches:
         key = match_calendar_date(m)

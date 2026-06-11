@@ -97,28 +97,42 @@ const destinations = [
     href: "/matchday",
     cls: "home-dest-matchday",
     icon: icons.matchday,
-    title: "MatchDay",
+    title: "Live Matches",
     desc: "Live scores with a win-probability engine and your personalized following feed.",
+  },
+  {
+    href: "/standings",
+    cls: "home-dest-standings",
+    icon: icons.bracket,
+    title: "Standings",
+    desc: "Live group tables for all 12 groups with the top-2 plus best-8-thirds highlighted.",
+  },
+  {
+    href: "/teams",
+    cls: "home-dest-teams",
+    icon: icons.matchday,
+    title: "Teams & Stats",
+    desc: "All 48 nations by group, with flags, team codes, and fixtures from the live data feed.",
   },
   {
     href: "/bracket",
     cls: "home-dest-bracket",
     icon: icons.bracket,
-    title: "Bracket Predictor",
-    desc: "Make manual picks or run a Monte Carlo simulation, then share a champion poster.",
+    title: "Predictions",
+    desc: "Make manual picks or run a Monte Carlo simulation, then export your bracket to share.",
   },
   {
     href: "/fanplan",
     cls: "home-dest-fanplan",
     icon: icons.fanplan,
-    title: "FanPlan",
-    desc: "Optimize a city-hopping itinerary across the 16 host cities of the tournament.",
+    title: "Travel Planner",
+    desc: "Optimize a city-hopping itinerary across the 16 host cities and export it to PDF.",
   },
   {
     href: "/watch",
     cls: "home-dest-watch",
     icon: icons.watch,
-    title: "WatchTogether",
+    title: "Fan Rooms",
     desc: "Real-time rooms with live chat, custom polls, and broadcast emoji reactions.",
   },
 ];
@@ -170,7 +184,7 @@ export default function HomePage() {
   return (
     <div className="home">
       {/* HERO */}
-      <section className="home-hero home-enter home-enter-1" aria-label="KickOff26 — World Cup 2026 companion">
+      <section className="home-hero home-enter home-enter-1" aria-label="KickOff26 - World Cup 2026 companion">
         <div className="home-hero-inner">
           <span className="home-hero-kicker">
             <span className="home-hero-kicker-dot" aria-hidden />
@@ -187,7 +201,7 @@ export default function HomePage() {
           </p>
           <div className="home-hero-ctas">
             <Link href="/matchday" className="home-cta home-cta-primary">
-              Explore MatchDay <Arrow />
+              Explore Live Matches <Arrow />
             </Link>
             <Link href="/bracket" className="home-cta home-cta-secondary">
               Build Your Bracket
@@ -196,7 +210,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* LIVE TOURNAMENT STRIP — real data only */}
+      {/* LIVE TOURNAMENT STRIP - real data only */}
       {hasData && (
         <section className="home-enter home-enter-2" aria-label="Tournament status">
           <div className="home-live-strip">
@@ -209,7 +223,7 @@ export default function HomePage() {
                 {liveCount > 0 ? `${liveCount} in play` : "No live matches"}
               </span>
               <span className="home-live-item-meta">
-                {liveCount > 0 ? "Tap MatchDay to follow along" : "Check back at kickoff"}
+                {liveCount > 0 ? "Tap Live Matches to follow along" : "Check back at kickoff"}
               </span>
             </div>
 

@@ -103,8 +103,7 @@ export function FanPlanTimeline({ stops }: Props) {
               </div>
 
               <p className="fanplan-ticket-note">
-                {s.ticket_estimate?.label ?? "Estimated"} · estimated — prices vary with dynamic
-                pricing
+                {s.ticket_estimate?.label ?? "Estimated"} pricing; actual prices vary at purchase.
               </p>
 
               {s.cross_border_note ? (
@@ -115,7 +114,7 @@ export function FanPlanTimeline({ stops }: Props) {
               ) : null}
 
               <p className="fanplan-running-total">
-                Running totals — tickets: {formatUsdRange(runningLow, runningHigh)} · est. travel:{" "}
+                Running totals: tickets {formatUsdRange(runningLow, runningHigh)}, travel ~{" "}
                 {runningTravel.toFixed(1)}h
               </p>
             </article>

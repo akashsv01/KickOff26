@@ -1,13 +1,13 @@
 /**
- * Official FIFA World Cup 2026 Round of 32 seeding.
+ * Official World Cup 2026 Round of 32 seeding.
  *
- * Match layout from tournament schedule (matches 73–88). Each slot is either:
+ * Match layout from tournament schedule (matches 73-88). Each slot is either:
  * - a fixed group finisher (1A = winner of A, 2B = runner-up of B), or
  * - a third-place berth with an eligible-group list (e.g. 3A/B/C/D/F).
  *
  * The eight advancing third-placed teams are assigned to berths via backtracking
  * so each third plays a group winner from a different group and every berth is filled.
- * (FIFA publishes 495 combination-specific tables in Annex C; this satisfies the
+ * (The tournament publishes 495 combination-specific tables in Annex C; this satisfies the
  * same structural constraints: unique teams, no same-group R32 ties, thirds vs winners.)
  */
 
@@ -25,7 +25,7 @@ function third(eligibleGroups: string[], opponentGroup: string): ThirdSide {
   return { kind: "third", eligibleGroups, opponentGroup };
 }
 
-/** Official R32 template — index 0 = bracket slot r32-1 (WC match 73). */
+/** Official R32 template - index 0 = bracket slot r32-1 (WC match 73). */
 export const R32_OFFICIAL_TEMPLATE: readonly [SideDef, SideDef][] = [
   [fixed("2A"), fixed("2B")],
   [fixed("1E"), third(["A", "B", "C", "D", "F"], "E")],

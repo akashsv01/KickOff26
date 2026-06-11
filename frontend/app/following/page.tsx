@@ -9,9 +9,10 @@ import { TeamFlag } from "@/components/TeamFlag";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Match, Team } from "@/lib/matchday";
+import { useWebSocket } from "@/lib/websocket";
 
 export default function FollowingPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
   const [followed, setFollowed] = useState<number[]>([]);
   const [following, setFollowing] = useState<Match[]>([]);
@@ -25,6 +26,20 @@ export default function FollowingPage() {
     () => teams.filter((t) => followed.includes(t.id)),
     [teams, followed]
   );
+  const followedCodes = useMemo(
+    () => new Set(followedTeams.map((t) => t.code)),
+    [followedTeams]
+  );
+
+  const applyMatchUpdate = useCallback((m: Match) => {
+    setFollowing((prev) =>
+      prev.map((x) =>
+        x.id === m.id ? { ...x, ...m, local_date: m.local_date ?? x.local_date } : x
+      )
+    );
+  }, []);
+
+  const { connected, subscribe, reconnectCount } = useWebSocket(user ? token : null);
 
   const loadFollowing = useCallback(async () => {
     if (!user) {
@@ -57,6 +72,27 @@ export default function FollowingPage() {
     setFollowed(user.followed_team_ids || []);
     loadFollowing();
   }, [user, loadFollowing]);
+
+  useEffect(() => {
+    if (!connected || !user) return;
+    loadFollowing();
+  }, [connected, reconnectCount, user, loadFollowing]);
+
+  useEffect(() => {
+    if (!connected || followedCodes.size === 0) return;
+    return subscribe("matches:live", (data) => {
+      if (data.type !== "match_update" || !data.match) return;
+      const m = data.match as Match;
+      const home = m.home_team?.code;
+      const away = m.away_team?.code;
+      if (
+        (home && followedCodes.has(home)) ||
+        (away && followedCodes.has(away))
+      ) {
+        applyMatchUpdate(m);
+      }
+    });
+  }, [connected, subscribe, applyMatchUpdate, followedCodes]);
 
   async function saveFollowed(ids: number[]) {
     if (!user) return;

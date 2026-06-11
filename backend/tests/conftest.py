@@ -1,6 +1,6 @@
 import os
 
-# Use SQLite for all tests — no Postgres/Docker required
+# Use SQLite for all tests - no Postgres/Docker required
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test_kickoff26.db")
 os.environ.setdefault("DATA_MODE", "mock")
 os.environ.setdefault("LIVE_DATA_MODE", "demo")
@@ -13,7 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from app.db import async_session, init_db
 from app.main import app
 from app.services.data_ingestion import DataIngestionService
-from app.services.match_lineups import ensure_demo_lineups
+from app.services.match_lineups import clear_stored_lineups
 
 
 @pytest.fixture(scope="session")
@@ -24,7 +24,7 @@ async def setup_db():
     await init_db()
     async with async_session() as db:
         await DataIngestionService(db).sync_all(force=True)
-        await ensure_demo_lineups(db)
+        await clear_stored_lineups(db)
         await db.commit()
 
 
@@ -37,9 +37,16 @@ async def client(setup_db):
 
 @pytest.fixture
 async def auth_client(client: AsyncClient):
+    teams = (await client.get("/api/teams")).json()
+    favorite_team_id = teams[0]["id"]
     res = await client.post(
         "/api/auth/register",
-        json={"email": "test@kickoff26.dev", "username": "testfan", "password": "secret123"},
+        json={
+            "email": "test@kickoff26.dev",
+            "username": "testfan",
+            "password": "secret123",
+            "favorite_team_id": favorite_team_id,
+        },
     )
     if res.status_code == 400:
         res = await client.post(

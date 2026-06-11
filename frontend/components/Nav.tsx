@@ -1,25 +1,38 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AppToast } from "@/components/AppToast";
 import { NotificationBell } from "@/components/matchday/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TrophyIcon } from "@/components/TrophyIcon";
 import { useAuth } from "@/lib/auth";
 
 const links = [
-  { href: "/matchday", label: "MatchDay" },
-  { href: "/bracket", label: "Bracket" },
-  { href: "/fanplan", label: "FanPlan" },
+  { href: "/matchday", label: "Live Matches" },
+  { href: "/standings", label: "Standings" },
+  { href: "/teams", label: "Teams" },
+  { href: "/bracket", label: "Predictions" },
+  { href: "/fanplan", label: "Travel Planner" },
   { href: "/following", label: "Following" },
-  { href: "/watch", label: "WatchTogether" },
+  { href: "/watch", label: "Fan Rooms" },
+  { href: "/resources", label: "Resources" },
 ];
 
 export default function Nav() {
   const { user, logout, loading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [logoutToast, setLogoutToast] = useState(false);
+
+  function handleLogout() {
+    logout();
+    setOpen(false);
+    setLogoutToast(true);
+    router.push("/");
+  }
 
   const isMatchDay = pathname.startsWith("/matchday");
 
@@ -43,6 +56,13 @@ export default function Nav() {
 
   return (
     <nav className="app-nav">
+      {logoutToast ? (
+        <AppToast
+          message="You've been signed out."
+          onDismiss={() => setLogoutToast(false)}
+          autoDismissMs={3500}
+        />
+      ) : null}
       <div className="relative z-[60] mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
         <Link href="/" className="flex shrink-0 items-center gap-2 text-xl font-bold text-app-gold">
           <TrophyIcon className="h-7 w-7" />
@@ -69,7 +89,7 @@ export default function Nav() {
               <span className="ml-1 hidden text-app-gold lg:inline">Hi, {user.username}</span>
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleLogout}
                 className="nav-link"
               >
                 Log out
@@ -131,7 +151,7 @@ export default function Nav() {
             {!loading && user ? (
               <>
                 <span className="nav-drawer-user">Signed in as {user.username}</span>
-                <button type="button" onClick={logout} className="nav-drawer-link text-left">
+                <button type="button" onClick={handleLogout} className="nav-drawer-link text-left">
                   Log out
                 </button>
               </>

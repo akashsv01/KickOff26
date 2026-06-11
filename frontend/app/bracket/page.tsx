@@ -10,6 +10,7 @@ import {
   BracketPersistActions,
   type BracketPersistScope,
 } from "@/components/bracket/BracketPersistActions";
+import { BracketExportSheet } from "@/components/bracket/BracketExportSheet";
 import { KnockoutBracket } from "@/components/bracket/KnockoutBracket";
 import { MostLikelyPath } from "@/components/bracket/MostLikelyPath";
 import { FootballLoader } from "@/components/FootballLoader";
@@ -27,6 +28,7 @@ import {
   type MatchResult,
 } from "@/lib/bracketGroups";
 import { applyKnockoutPick } from "@/lib/knockoutBracket";
+import { exportNodeToPdf, exportNodeToPng, formatExportError, logExportError } from "@/lib/exporters";
 import { api, API_URL } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
@@ -100,6 +102,8 @@ export default function BracketPage() {
   const [simLiveMode, setSimLiveMode] = useState(false);
   const [liveChampionProbs, setLiveChampionProbs] = useState<Record<string, number> | null>(null);
   const { subscribe } = useWebSocket(token);
+  const bracketExportSheetRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
   const simFinishRef = useRef(false);
   const simPathAppliedRef = useRef(false);
   const simUnsubRef = useRef<(() => void) | null>(null);
@@ -134,7 +138,7 @@ export default function BracketPage() {
         }
         await new Promise((r) => setTimeout(r, options?.liveMode ? 350 : 400));
       }
-      throw new Error("Simulation timed out — try fewer iterations or use Simulate (Live)");
+      throw new Error("Simulation timed out - try fewer iterations or use Simulate (Live)");
     },
     []
   );
@@ -342,6 +346,27 @@ export default function BracketPage() {
     }
   }
 
+  async function handleExportBracket(kind: "png" | "pdf") {
+    const node = bracketExportSheetRef.current;
+    if (!node || !structure) return;
+    setExporting(true);
+    try {
+      const champ = knockoutPicks["final-1"];
+      const base = `kickoff26-bracket${champ ? `-${champ}` : ""}`;
+      if (kind === "png") {
+        await exportNodeToPng(node, `${base}.png`);
+      } else {
+        await exportNodeToPdf(node, `${base}.pdf`);
+      }
+      showToast(`Bracket exported as ${kind.toUpperCase()}`);
+    } catch (err) {
+      logExportError(`bracket ${kind}`, err);
+      showToast(`Export failed: ${formatExportError(err)}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function resetWorkingState() {
     setGroupResults({});
   }
@@ -505,9 +530,10 @@ export default function BracketPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-champagne/80">
             2026 Tournament · 48 Teams · 12 Groups
           </p>
-          <h1 className="mt-1 text-3xl font-bold text-champagne">Bracket Predictor</h1>
+          <h1 className="mt-1 text-3xl font-bold text-champagne">Predictions</h1>
           <p className="mt-2 max-w-2xl text-sm text-app-muted">
-            Enter group-stage results, auto-compute standings, and seed the Round of 32.
+            Enter group-stage results, auto-compute standings, seed the Round of 32, and export
+            your knockout bracket to share.
           </p>
         </div>
       </header>
@@ -525,7 +551,7 @@ export default function BracketPage() {
             }
             onClick={() => {
               if (t === "knockout" && !knockoutUnlocked) {
-                showToast(`Locked — ${progressStats.decided}/${progressStats.total} decided. Save to unlock.`);
+                showToast(`Locked - ${progressStats.decided}/${progressStats.total} decided. Save to unlock.`);
                 setTab("groups");
                 return;
               }
@@ -635,22 +661,40 @@ export default function BracketPage() {
           ) : (
             <>
               <p className="text-sm text-app-muted">
-                Unlocked — seeded from your <span className="font-semibold">saved</span> group results.
-                If you change results, you’ll need to re-save to unlock again.
+                Unlocked - seeded from your <span className="font-semibold">saved</span> group results.
+                If you change results, you will need to re-save to unlock again.
               </p>
-              <ChampionCelebration
-                championCode={finalChampionCode}
-                teamName={structure.teams_by_code[finalChampionCode]?.name}
-              />
-              <div className="md-glass overflow-hidden p-4">
-                <KnockoutBracket
-                  rounds={structure.knockout}
-                  picks={knockoutPicks}
-                  slotTeams={r32SlotTeams}
-                  onPick={pickKnockout}
+              <div className="space-y-4 rounded-2xl">
+                <ChampionCelebration
+                  championCode={finalChampionCode}
+                  teamName={structure.teams_by_code[finalChampionCode]?.name}
                 />
+                <div className="md-glass overflow-hidden p-4">
+                  <KnockoutBracket
+                    rounds={structure.knockout}
+                    picks={knockoutPicks}
+                    slotTeams={r32SlotTeams}
+                    onPick={pickKnockout}
+                  />
+                </div>
               </div>
               <div className="flex flex-wrap items-start gap-2">
+                <button
+                  type="button"
+                  className="md-btn-secondary"
+                  onClick={() => handleExportBracket("png")}
+                  disabled={exporting}
+                >
+                  {exporting ? "Exporting…" : "Export bracket (PNG)"}
+                </button>
+                <button
+                  type="button"
+                  className="md-btn-secondary"
+                  onClick={() => handleExportBracket("pdf")}
+                  disabled={exporting}
+                >
+                  Export bracket (PDF)
+                </button>
                 <BracketPersistActions
                   scope={"knockout" satisfies BracketPersistScope}
                   inline
@@ -753,9 +797,35 @@ export default function BracketPage() {
         </div>
       )}
 
+      {knockoutUnlocked && structure ? (
+        <div
+          className="bracket-export-mount"
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            opacity: 0,
+            pointerEvents: "none",
+            zIndex: -1,
+            overflow: "visible",
+          }}
+          aria-hidden
+        >
+          <BracketExportSheet
+            ref={bracketExportSheetRef}
+            username={user?.username ?? "Guest"}
+            championCode={finalChampionCode}
+            championName={structure.teams_by_code[finalChampionCode]?.name}
+            rounds={structure.knockout}
+            picks={knockoutPicks}
+            slotTeams={r32SlotTeams}
+          />
+        </div>
+      ) : null}
+
       {championCode && (
         <div className="md-glass p-5">
-          <h3 className="font-semibold text-champagne">Champion Poster — {championCode}</h3>
+          <h3 className="font-semibold text-champagne">Champion Poster - {championCode}</h3>
           <img
             src={`${API_URL}/api/bracket/poster/${championCode}`}
             alt={`Predicted champion ${championCode}`}

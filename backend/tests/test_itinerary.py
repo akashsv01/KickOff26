@@ -58,7 +58,7 @@ def test_optimize_itinerary_returns_stops(sample_matches):
     plan = optimize_itinerary(sample_matches, {"USA"}, max_cities=5)
     assert len(plan["stops"]) >= 1
     assert plan["stops"][0]["city"] == "Los Angeles"
-    assert plan["stops"][0]["ticket_estimate"]["display_range"].startswith("est.")
+    assert plan["stops"][0]["ticket_estimate"]["display_range"].startswith("$")
 
 
 def test_multi_city_itinerary(sample_matches):
@@ -107,7 +107,7 @@ def test_ticket_range_group_non_host():
 
 def test_disclaimer_present(sample_matches):
     plan = optimize_itinerary(sample_matches, {"USA"}, max_cities=3)
-    assert "dynamic pricing" in plan["disclaimer"].lower()
+    assert "dynamic" in plan["disclaimer"].lower()
 
 
 def test_only_followed_team_matches_in_plan(sample_matches):

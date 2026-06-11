@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "KickOff26 — 2026 Football Tournament Companion",
+    name: "KickOff26 - 2026 Football Tournament Companion",
     short_name: "KickOff26",
     description:
       "Live scores, bracket simulator, fan travel planner, and watch-together rooms for the 2026 international football tournament.",

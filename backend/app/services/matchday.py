@@ -49,7 +49,7 @@ def _model_context(home_code: str, away_code: str, probs: dict[str, float], pre_
         "home_elo": home_elo,
         "away_elo": away_elo,
         "favorite_code": fav,
-        "summary": f"{fav} favored — rating {fav_elo} vs {und_elo}",
+        "summary": f"{fav} favored - rating {fav_elo} vs {und_elo}",
         "pre_match": pre_probs or probs,
     }
 

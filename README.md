@@ -1,8 +1,8 @@
 # KickOff26
 
-An all-in-one fan companion for the **2026 FIFA World Cup** (48 teams across the United States, Canada, and Mexico). KickOff26 brings live scores, an interactive prediction bracket with a Monte Carlo simulator, a travel itinerary planner across the 16 host cities, and real-time watch-party rooms into a single, broadcast-grade web app.
+An all-in-one fan companion for the **2026 World Cup** (48 teams across the United States, Canada, and Mexico). KickOff26 brings live scores, an interactive prediction bracket with a Monte Carlo simulator, a travel itinerary planner across the 16 host cities, and real-time watch-party rooms into a single, broadcast-grade web app.
 
-> Looking for the deep technical breakdown — every module, the data pipeline, the real-time gateway, and the database strategy? See **[architecture.md](./architecture.md)**.
+> Looking for the deep technical breakdown - every module, the data pipeline, the real-time gateway, and the database strategy? See **[architecture.md](./architecture.md)**.
 
 ---
 
@@ -12,13 +12,14 @@ An all-in-one fan companion for the **2026 FIFA World Cup** (48 teams across the
 - [Tech stack](#tech-stack)
 - [How it fits together](#how-it-fits-together)
 - [Quick start](#quick-start)
-  - [Option A — Zero-config (SQLite)](#option-a--zero-config-sqlite)
-  - [Option B — PostgreSQL (recommended)](#option-b--postgresql-recommended)
-  - [Option C — Docker](#option-c--docker)
+  - [Option A - Zero-config (SQLite)](#option-a--zero-config-sqlite)
+  - [Option B - PostgreSQL (recommended)](#option-b--postgresql-recommended)
+  - [Option C - Docker](#option-c--docker)
 - [Database: why both SQLite and PostgreSQL?](#database-why-both-sqlite-and-postgresql)
 - [Environment variables](#environment-variables)
 - [Project structure](#project-structure)
 - [Live data architecture](#live-data-architecture)
+- [Data sources & references](#data-sources--references)
 - [WebSocket channels](#websocket-channels)
 - [Testing](#testing)
 - [Troubleshooting](#troubleshooting)
@@ -28,12 +29,17 @@ An all-in-one fan companion for the **2026 FIFA World Cup** (48 teams across the
 
 ## Features
 
+> The in-app navigation uses friendly labels (the routes in parentheses are unchanged): **Live Matches** (`/matchday`), **Standings** (`/standings`), **Teams** (`/teams`), **Predictions** (`/bracket`), **Travel Planner** (`/fanplan`), **Following** (`/following`), **Fan Rooms** (`/watch`), **Resources** (`/resources`).
+
 | Module | What it does |
 |--------|--------------|
-| **MatchDay Companion** | Live scores dashboard backed by a Poisson/Elo win-probability engine, a personalized "following" feed, match detail pages with lineups and timelines, and momentum alerts pushed over WebSocket. |
-| **Bracket Predictor** | Build your group-stage and knockout picks by hand, or run a **Monte Carlo simulator** (1k / 10k / 50k runs) in a background process pool, then export a shareable champion poster. |
-| **FanPlan** | Itinerary optimizer that picks the best set of matches to attend across the 16 host cities given your followed teams, budget, and travel constraints — rendered on an interactive Leaflet map. |
-| **WatchTogether** | Per-match real-time chat rooms with live presence, custom polls, and floating emoji reactions — all synced through the shared WebSocket gateway. |
+| **Live Matches** (`/matchday`) | Live scores dashboard backed by a Poisson/Elo win-probability engine, a personalized "following" feed, match detail pages with timelines, and momentum alerts pushed over WebSocket. |
+| **Standings** (`/standings`) | Live group tables for all 12 groups with real tiebreakers (points, GD, GF). Top 2 of each group plus the 8 best third-placed teams are highlighted, and groups update in real time as scores change. |
+| **Teams** (`/teams`) | All 48 nations grouped A-L with flags, team codes, and a per-team detail view (fixtures, venues, squads, coach, and player to watch). |
+| **Predictions** (`/bracket`) | Build your group-stage and knockout picks by hand, or run a **Monte Carlo simulator** (1k / 10k / 50k runs) in a background process pool. Export your knockout bracket as a shareable **PNG or PDF**. |
+| **Travel Planner** (`/fanplan`) | Itinerary optimizer that picks the best set of matches to attend across the 16 host cities given your followed teams, budget, and travel constraints - rendered on an interactive Leaflet map and **exportable to PDF**. |
+| **Fan Rooms** (`/watch`) | Per-match real-time chat rooms with live presence, custom polls, and floating emoji reactions. **Viewing is open to everyone; sending messages and creating polls requires login.** |
+| **Resources** (`/resources`) | Curated official links - tournament site, broadcasters, ticketing, host cities - plus the real data sources behind the app. |
 
 ---
 
@@ -47,7 +53,8 @@ An all-in-one fan companion for the **2026 FIFA World Cup** (48 teams across the
 | **Real-time** | A single in-process WebSocket gateway (`ws_manager`) with channel pub/sub |
 | **Auth** | JWT (python-jose) + bcrypt password hashing (passlib) |
 | **Compute** | NumPy-powered Monte Carlo simulator on a `ProcessPoolExecutor` |
-| **Data sources** | [openfootball](https://github.com/openfootball/worldcup) (schedule, free) · [API-Football](https://rapidapi.com/api-sports/api/api-football) (optional live scores) |
+| **Data sources** | [openfootball](https://github.com/openfootball/worldcup) (schedule, free) · [rezarahiminia World Cup 2026 API](https://github.com/rezarahiminia/worldcup2026) (live scores, `worldcup26.ir`) |
+| **Exports** | html2canvas + jsPDF (bracket PNG/PDF, itinerary PDF) - all client-side |
 
 ---
 
@@ -71,8 +78,7 @@ An all-in-one fan companion for the **2026 FIFA World Cup** (48 teams across the
                                   └─────────────────────────────────────────────────────────────────┘
 
    Background loops (started in app lifespan):
-     • live_poller / matchday_demo  →  write scores+events to DB  →  broadcast over /ws
-     • lineup_fetcher               →  fetch-once lineups near kickoff
+     • worldcup_poller / matchday_demo  →  write scores+goal events to DB  →  broadcast over /ws
 ```
 
 The frontend **never** talks to a football API directly. A single backend poller writes state to the database, and every client receives updates over the WebSocket gateway, so external API usage stays flat regardless of how many users are online.
@@ -83,9 +89,9 @@ The frontend **never** talks to a football API directly. A single backend poller
 
 **Prerequisites:** Python 3.11+, Node.js 18+. PostgreSQL 16 is recommended but optional (see Option A).
 
-### Option A — Zero-config (SQLite)
+### Option A - Zero-config (SQLite)
 
-The fastest way to run the app locally. If `DATABASE_URL` is not set, the backend defaults to a local SQLite file (`backend/kickoff26.db`) — no database server required.
+The fastest way to run the app locally. If `DATABASE_URL` is not set, the backend defaults to a local SQLite file (`backend/kickoff26.db`) - no database server required.
 
 ```powershell
 # 1. Backend (from backend/, with NO DATABASE_URL in the environment)
@@ -105,7 +111,7 @@ npm run dev
 
 > Note: the repo `.env` ships with a PostgreSQL `DATABASE_URL`. To use the SQLite fallback, comment out/remove `DATABASE_URL` (or run in an environment where it is unset).
 
-### Option B — PostgreSQL (recommended)
+### Option B - PostgreSQL (recommended)
 
 Mirrors production (JSONB columns, real concurrency, durability).
 
@@ -122,7 +128,7 @@ pip install -r requirements.txt
 cd ..
 .\scripts\dev-backend.ps1
 
-# First run only — seed tables and fixtures:
+# First run only - seed tables and fixtures:
 #   cd backend; python scripts/init_db_data.py
 
 # 4. Frontend
@@ -133,7 +139,7 @@ npm run dev
 
 **Important:** always run Uvicorn from the `backend/` folder (not the repo root), and restart the backend after editing `.env`.
 
-### Option C — Docker
+### Option C - Docker
 
 Brings up PostgreSQL + the backend together. The compose file injects an asyncpg `DATABASE_URL` pointing at the `postgres` service.
 
@@ -154,17 +160,17 @@ KickOff26 runs the **same** async SQLAlchemy models and queries against either e
 | | **SQLite (`kickoff26.db`)** | **PostgreSQL** |
 |---|---|---|
 | **Role** | Zero-config fallback + automated tests | Primary datastore for dev & production |
-| **When it's used** | When `DATABASE_URL` is unset — the default in [`app/config.py`](./backend/app/config.py) is `sqlite+aiosqlite:///./kickoff26.db`. Tests use a separate `test_kickoff26.db`. | When `DATABASE_URL` points at Postgres — set in `.env` for local dev and by `docker-compose.yml` for containers. |
+| **When it's used** | When `DATABASE_URL` is unset - the default in [`app/config.py`](./backend/app/config.py) is `sqlite+aiosqlite:///./kickoff26.db`. Tests use a separate `test_kickoff26.db`. | When `DATABASE_URL` points at Postgres - set in `.env` for local dev and by `docker-compose.yml` for containers. |
 | **Driver** | `aiosqlite` | `asyncpg` |
 | **JSON columns** | stored as `JSON` | stored as `JSONB` (faster, indexable) |
-| **Why** | No server to install — clone and run instantly; CI and `pytest` stay hermetic and fast. | Real concurrency, durability, JSONB, and parity with the deployed environment. |
+| **Why** | No server to install - clone and run instantly; CI and `pytest` stay hermetic and fast. | Real concurrency, durability, JSONB, and parity with the deployed environment. |
 
 This is wired up in two places:
 
-- **Engine selection** — [`app/db/__init__.py`](./backend/app/db/__init__.py) inspects the URL and adds SQLite-only connect args (`check_same_thread=False`).
-- **Column variants** — [`app/models/__init__.py`](./backend/app/models/__init__.py) defines `JsonField = JSON().with_variant(JSONB, "postgresql")`, so the same model is `JSON` on SQLite and `JSONB` on Postgres.
+- **Engine selection** - [`app/db/__init__.py`](./backend/app/db/__init__.py) inspects the URL and adds SQLite-only connect args (`check_same_thread=False`).
+- **Column variants** - [`app/models/__init__.py`](./backend/app/models/__init__.py) defines `JsonField = JSON().with_variant(JSONB, "postgresql")`, so the same model is `JSON` on SQLite and `JSONB` on Postgres.
 
-`kickoff26.db` and `test_kickoff26.db` are generated artifacts — safe to delete; they're recreated on the next run/test.
+`kickoff26.db` and `test_kickoff26.db` are generated artifacts - safe to delete; they're recreated on the next run/test.
 
 > **Rule of thumb:** use SQLite to try the app in seconds; use PostgreSQL for anything you'd ship or demo.
 
@@ -177,12 +183,14 @@ Copy `.env.example` to `.env` and adjust as needed. Backend settings live in `.e
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DATABASE_URL` | SQLAlchemy async connection string. Postgres (`postgresql+asyncpg://…`) or SQLite (`sqlite+aiosqlite:///./kickoff26.db`). | SQLite if unset |
-| `JWT_SECRET` | Signing secret for auth tokens — set to a long random string. | `change-me` |
+| `JWT_SECRET` | Signing secret for auth tokens - set to a long random string. | `change-me` |
 | `JWT_ALGORITHM` / `JWT_EXPIRE_MINUTES` | Token algorithm and lifetime. | `HS256` / `10080` (7 days) |
 | `DATA_MODE` | `mock` = skip re-seed if DB already populated · `live` = force re-seed on startup. | `mock` (`live` in `.env`) |
-| `LIVE_DATA_MODE` | `demo` = one simulated live match, **zero API calls** · `api` = real API-Football poller. | `demo` |
-| `API_FOOTBALL_KEY` | RapidAPI key for API-Football — required only when `LIVE_DATA_MODE=api`. | empty |
-| `RAPIDAPI_KEY` / `RAPIDAPI_HOST` | Legacy alias for the key / API host. | empty / `v3.football.api-sports.io` |
+| `LIVE_DATA_MODE` | `demo` = one simulated live match, **zero API calls** · `api` = real [rezarahiminia World Cup 2026 API](https://github.com/rezarahiminia/worldcup2026) poller. | `demo` |
+| `WORLDCUP_API_TOKEN` | JWT bearer token for the rezarahiminia API (valid ~84 days) - **required** when `LIVE_DATA_MODE=api`. Obtain via `scripts/get_worldcup_token.py`. | empty |
+| `WORLDCUP_API_BASE` | Base URL for the API (HTTPS). | `https://worldcup26.ir` |
+| `WORLDCUP_API_EMAIL` / `WORLDCUP_API_PASSWORD` | Optional - only read by `scripts/get_worldcup_token.py` to register/authenticate. | empty |
+| `API_FOOTBALL_KEY` / `RAPIDAPI_KEY` / `RAPIDAPI_HOST` | Legacy API-Football integration (no longer used by the live poller; kept for reference). | empty |
 | `FOOTBALL_DATA_API_KEY` | Optional one-shot score merge from football-data.org at startup. | empty |
 | `CACHE_TTL_TEAMS` / `_MATCHES` / `_STANDINGS` | TTLs (seconds) for the DB-backed `api_cache`. | `86400` / `300` / `600` |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins. | `http://localhost:3000,http://127.0.0.1:3000` |
@@ -206,10 +214,10 @@ KickOff26/
 │   │   ├── schemas/           # Pydantic request/response models
 │   │   ├── auth/              # JWT + bcrypt helpers, user lookups
 │   │   ├── api/               # HTTP routers: auth, teams, matchday, bracket, rooms, fanplan
-│   │   ├── services/          # Business logic (see architecture.md for each module)
+│   │   ├── services/          # Business logic - incl. worldcup_api/_live/_sync/_poller, live_standings
 │   │   └── websocket/         # /ws handler + shared channel gateway (ws_manager)
 │   ├── data/                  # Cached openfootball schedule, ticket estimates (JSON)
-│   ├── scripts/               # init_db_data.py, fetch_worldcup.py, build_fixtures_json.py
+│   ├── scripts/               # init_db_data.py, get_worldcup_token.py, build_fixtures_json.py
 │   └── tests/                 # pytest suite (runs on SQLite)
 ├── frontend/
 │   ├── app/                   # Next.js App Router pages (matchday, bracket, fanplan, watch, …)
@@ -225,37 +233,86 @@ KickOff26/
 
 ## Live data architecture
 
-### Data sources (free-tier friendly)
+### Data sources
 
 | Data | Source | API key? |
 |------|--------|----------|
 | Fixtures, groups, kickoff times, venues | [openfootball](https://github.com/openfootball/worldcup) (`backend/data/worldcup_2026.json`) | No |
-| Live scores, events, status | [API-Football](https://rapidapi.com/api-sports/api/api-football) via RapidAPI | Yes — `API_FOOTBALL_KEY` |
+| Live scores, goal scorers, match status, teams, groups, stadiums | [rezarahiminia World Cup 2026 API](https://github.com/rezarahiminia/worldcup2026) (`https://worldcup26.ir`) | Yes - `WORLDCUP_API_TOKEN` |
 
 ### `LIVE_DATA_MODE`
 
 | Mode | Behavior |
 |------|----------|
-| **`demo`** (default) | One simulated live match (MEX vs RSA) with goals, cards, probabilities, and notifications. **Zero API calls.** Driven by `matchday_demo.py`. |
-| **`api`** | A single backend poller calls `fixtures?live=all` during kickoff windows; real events drive notifications. Driven by `live_poller.py`. |
+| **`demo`** (default) | One simulated live match (MEX vs RSA) with goals, cards, lineups, probabilities, and notifications. **Zero API calls.** Driven by `matchday_demo.py`. |
+| **`api`** | A single backend poller calls `GET /get/games` on the rezarahiminia API during kickoff windows, writes to the DB, and fans out over WebSocket. Driven by `worldcup_poller.py`. |
 
-```env
-# Local dev — live card without consuming any quota
-LIVE_DATA_MODE=demo
+### Setting up the rezarahiminia live API (`LIVE_DATA_MODE=api`)
 
-# Tournament day — real live data
-LIVE_DATA_MODE=api
-API_FOOTBALL_KEY=your-rapidapi-key
+1. **Register / authenticate** to get a JWT token (valid ~84 days). From `backend/`:
+   ```powershell
+   # Register a new account (first time)
+   python scripts/get_worldcup_token.py --register --email you@example.com --password "your-password"
+
+   # Or authenticate an existing account
+   python scripts/get_worldcup_token.py --email you@example.com --password "your-password"
+   ```
+2. **Store the token** in `backend/.env` (never hardcode it):
+   ```env
+   LIVE_DATA_MODE=api
+   WORLDCUP_API_TOKEN=eyJhbGciOi...        # printed by the script
+   WORLDCUP_API_BASE=https://worldcup26.ir  # HTTPS, not the :3050 HTTP URL
+   ```
+3. **Restart the backend.** It sends the token as `Authorization: Bearer <token>` on every request. `/health` reports `live_source` and `worldcup_api_token_set`.
+
+The token is read from settings only - it is never committed. Endpoints used: `/get/teams`, `/get/team/{_id}`, `/get/groups`, `/get/games`, `/get/game/{_id}`, `/get/stadiums`.
+
+**Dual IDs (critical):** each API record has `_id` (Mongo object id - use in `/get/game/{_id}` and `/get/team/{_id}`) and `id` (sequential string - used in relational refs like `home_team_id`, `stadium_id`). The sync job stores both as `api_object_id` and `api_seq_id` on `teams`, `stadiums`, and `matches`.
+
+**One-time / re-runnable sync:**
+
+```powershell
+cd backend
+python scripts/sync_worldcup_api.py
+# or POST http://localhost:8000/api/matchday/worldcup/sync
 ```
+
+This upserts all teams (flags, `iso2`, team codes), stadiums (city/venue), and links all 104 group-stage fixtures to your openfootball schedule rows. Knockout placeholders (32 games without fixed teams yet) are skipped until the API assigns real team ids.
+
+**Live status** is derived from the match payload: `notstarted` (not finished, no `time_elapsed`), `live` (`time_elapsed` present, not finished), `finished` (`finished` is true). **Goal events** come from `home_scorers` / `away_scorers` (scorer + timestamp) and drive notifications and live win-probability updates.
+
+> **Not provided by this API (per the maintainer):** yellow/red cards, substitutions, squads/lineups, and any SSE/WebSocket. In `api` mode the app does **not** fabricate these - lineups show *"not yet available"* and card/substitution play-by-play remains a clearly-labeled feature of `demo` mode only.
 
 ### Why API usage stays flat
 
 ```
-API-Football  →  backend poller  →  Database  →  WebSocket  →  all clients
- (1 req/poll)     (live_poller.py)   (matches)    (ws_manager)   (any # of users)
+worldcup26.ir  →  backend poller     →  Database  →  WebSocket  →  all clients
+ (1 req/poll)     (worldcup_poller.py)   (matches)    (ws_manager)   (any # of users)
 ```
 
-Clients read DB state via WebSocket, so **API usage does not scale with user count** — only the poller calls the API. The poller uses one `fixtures?live=all` call per tick, only polls inside kickoff windows, runs an adaptive interval (5 min idle-live, 90 s for ~5 min after a goal/red card), and halts when the rate-limit header drops below a safety threshold (serving last-known DB state). On `LIVE_DATA_MODE=api`, `/health` reports `api_quota`.
+Clients read DB state via WebSocket, so **API usage does not scale with user count** - only the poller calls the API. It makes one `GET /get/games` call per tick, polls every ~40 s while matches are live, ~60 s inside a kickoff window, and not at all when nothing is live or near kickoff - comfortably within the API's 500 req/60 s limit.
+
+---
+
+## Data sources & references
+
+KickOff26 uses **real data only**, with anything estimated or simulated clearly labeled in the UI.
+
+| Data | Source | Status |
+|------|--------|--------|
+| Tournament schedule, groups, kickoff times, venues | [openfootball / worldcup.json](https://github.com/openfootball/worldcup.json) | **Real** (open data) |
+| Live scores, goal scorers, match status, teams, stadiums | [rezarahiminia World Cup 2026 API](https://github.com/rezarahiminia/worldcup2026) · [worldcup26.ir](https://worldcup26.ir) | **Real** (live, `api` mode) |
+| Group standings | Computed on the backend from live match state (tiebreakers: pts, GD, GF) | **Real**, derived |
+| Win probabilities | Poisson/Elo model in `app/models/win_probability.py` | **Model output** |
+| Ticket-price ranges (Travel Planner) | Published 2026 ticket-pricing reporting (sports/business press) | **Estimated** - not official quotes |
+| Team squads & rosters | [Zafronix API](https://api.zafronix.com) | **Real** (cached) |
+| Head coaches & players to watch | [Bolavip](https://bolavip.com/en/world-cup/2026-world-cup-coaches-all-48-managers-of-the-qualified-national-teams) + local JSON | **Real** (curated) |
+| Travel distances/times (Travel Planner) | Great-circle estimates between host cities | **Estimated** |
+| Demo live match, cards, substitutions | `matchday_demo.py` simulation | **Demo/simulated** (only in `demo` mode) |
+| Official info & broadcasters | [Official tournament site](https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026), FOX, Telemundo (see in-app **Resources**) | **Real** (official links) |
+| Country flags | [flag-icons](https://github.com/lipis/flag-icons) (MIT) | Asset |
+
+Always confirm ticket prices and availability through the official 2026 ticketing channel - in-app figures are estimates.
 
 ---
 
@@ -282,7 +339,7 @@ cd backend
 pytest -v
 ```
 
-The suite (win-probability, simulator, itinerary, live poller, match calendar/events/lineups, R32 seeding, bracket standings, rooms, sim jobs, and API integration) runs entirely on **SQLite** — no Postgres or Docker required.
+The suite (win-probability, simulator, itinerary, live poller, match calendar/events/lineups, R32 seeding, bracket standings, rooms, sim jobs, and API integration) runs entirely on **SQLite** - no Postgres or Docker required.
 
 Frontend logic tests:
 
@@ -298,7 +355,7 @@ npm run test:matchday
 | Symptom | Fix |
 |---------|-----|
 | `PageNotFoundError` / stale build in Next.js | Stop dev/build, remove `frontend/.next`, then rebuild. |
-| Backend won't pick up `.env` changes | Restart Uvicorn — settings load at startup. Run it from `backend/`, not the repo root. |
+| Backend won't pick up `.env` changes | Restart Uvicorn - settings load at startup. Run it from `backend/`, not the repo root. |
 | `Address already in use` on :8000 | `scripts/dev-backend.ps1` detects this; free the port or stop the existing server. |
 | Want a clean database | Delete `backend/kickoff26.db` (SQLite) or drop/recreate the Postgres DB, then re-run `python scripts/init_db_data.py`. |
 | CORS errors in the browser | Ensure your frontend origin is in `CORS_ORIGINS` (localhost and 127.0.0.1 are treated as distinct). |

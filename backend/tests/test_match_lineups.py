@@ -80,6 +80,15 @@ def test_lineup_to_detail_fields_empty_when_not_ready():
     fields = lineup_to_detail_fields(row)
     assert fields["home_lineup"] == []
 
+    demo_row = MatchLineup(
+        match_id=2,
+        fetch_status="ready",
+        source="demo",
+        home_xi=[{"number": 1, "name": "Demo", "position": "GK"}],
+        away_xi=[{"number": 2, "name": "Demo", "position": "GK"}],
+    )
+    assert lineup_to_detail_fields(demo_row)["home_lineup"] == []
+
 
 def test_in_lineup_fetch_window():
     now = datetime(2026, 6, 11, 18, 55, tzinfo=timezone.utc)
@@ -111,18 +120,20 @@ async def test_store_and_detail_render(setup_db):
 
 
 @pytest.mark.asyncio
-async def test_demo_lineups_seed_all_fixtures(setup_db):
+async def test_demo_lineups_not_exposed_in_detail(setup_db):
     async with async_session() as db:
-        matches = (
-            await db.execute(select(Match).where(Match.external_id.isnot(None)))
-        ).scalars().all()
-        rows = (await db.execute(select(MatchLineup).where(MatchLineup.source == "demo"))).scalars().all()
-        assert len(rows) >= len(matches) // 2
-        demo_row = rows[0]
-        detail = await get_match_detail(db, demo_row.match_id)
+        match = (
+            await db.execute(select(Match).where(Match.status == MatchStatus.LIVE).limit(1))
+        ).scalar_one_or_none()
+        assert match is not None
+
+        home, away = parse_fixture_lineups(_sample_bundle())
+        await store_lineup(db, match.id, home, away, source="demo")
+
+        detail = await get_match_detail(db, match.id)
         assert detail is not None
-        assert len(detail["home_lineup"]) == 11
-        assert detail["lineups"]["home"]["formation"] == "4-3-3"
+        assert detail["home_lineup"] == []
+        assert detail["lineups"] is None
 
 
 @pytest.mark.asyncio

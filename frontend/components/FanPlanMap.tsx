@@ -121,7 +121,7 @@ export default function FanPlanMap({ stops }: { stops: FanPlanStop[] }) {
                   <>
                     <span style={{ color: ROUTE_COLOR }}>{s.ticket_estimate.display_range}</span>
                     <br />
-                    <span style={{ fontSize: "11px", opacity: 0.85 }}>Estimated — prices vary</span>
+                    <span style={{ fontSize: "11px", opacity: 0.85 }}>Estimated pricing</span>
                   </>
                 ) : null}
               </Popup>

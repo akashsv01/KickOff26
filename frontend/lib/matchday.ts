@@ -75,7 +75,7 @@ export type Team = {
   elo_rating?: number;
 };
 
-/** Eastern Time calendar day (official FIFA schedule) — never fall back to UTC kickoff slice. */
+/** Eastern Time calendar day (official 2026 schedule) - never fall back to UTC kickoff slice. */
 export function matchDateKey(match: Pick<Match, "local_date">): string | null {
   return match.local_date ?? null;
 }

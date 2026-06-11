@@ -57,7 +57,7 @@ def test_third_place_ranking_by_points():
         ]
     third = rank_third_placed(standings)
     assert len(third) == 8
-    assert "A3" in third  # 4 pts — should qualify
+    assert "A3" in third  # 4 pts - should qualify
 
 
 def test_single_simulation_returns_champion():

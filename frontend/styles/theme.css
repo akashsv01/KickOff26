@@ -1,5 +1,5 @@
 /**
- * KickOff26 — shared light/dark theme tokens.
+ * KickOff26 - shared light/dark theme tokens.
  * Toggle via data-theme="dark" | "light" on <html> (default: dark).
  */
 
@@ -168,7 +168,7 @@
   --app-danger: #b91c1c;
   --app-danger-bg: rgba(239, 68, 68, 0.1);
 
-  /* Host-nation accents (secondary to gold) — deepened for cream readability */
+  /* Host-nation accents (secondary to gold) - deepened for cream readability */
   --host-mx: #0a5e34;
   --host-mx-strong: #0c8f4d;
   --host-mx-subtle: rgba(15, 122, 68, 0.14);
@@ -185,7 +185,7 @@
   --ambient-mesh: rgba(22, 20, 28, 0.04);
   --ambient-mesh-opacity: 0.5;
 
-  /* Atmosphere foundation stops (warm ivory — deep enough that white cards lift) */
+  /* Atmosphere foundation stops (warm ivory - deep enough that white cards lift) */
   --atmos-bg-1: #efe9dd;
   --atmos-bg-2: #e7dfd0;
   --atmos-bg-3: #ece5d8;
@@ -260,7 +260,7 @@
   --md-cal-today-glow: rgba(154, 117, 24, 0.12);
 }
 
-/* Continuous app canvas — the cinematic backdrop is provided by the shared
+/* Continuous app canvas - the cinematic backdrop is provided by the shared
    <Atmosphere /> layer (styles/atmosphere.css) rendered fixed behind content. */
 .app-canvas {
   position: relative;

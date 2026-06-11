@@ -3,7 +3,7 @@ import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "KickOff26 — 2026 International Football Tournament Companion",
+  title: "KickOff26 - 2026 International Football Tournament Companion",
   description:
     "Live scores, bracket simulator, fan travel planner, and watch-together rooms for the 2026 international football tournament.",
   openGraph: {
@@ -17,7 +17,7 @@ const themeInitScript = `(function(){try{var t=localStorage.getItem("kickoff26-t
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>

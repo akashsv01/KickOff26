@@ -1,6 +1,6 @@
 """API-Football (RapidAPI) client with daily quota tracking.
 
-All live score polling goes through this module — clients never call the API directly.
+All live score polling goes through this module - clients never call the API directly.
 """
 
 from __future__ import annotations
@@ -107,7 +107,7 @@ class ApiFootballClient:
                     ) + timedelta(days=1)
                     self._quota["halted_until"] = tomorrow.isoformat()
                     logger.warning(
-                        "API-Football quota low (%s remaining) — halting polls until %s",
+                        "API-Football quota low (%s remaining) - halting polls until %s",
                         rem,
                         tomorrow.date(),
                     )
@@ -130,7 +130,7 @@ class ApiFootballClient:
 
     async def request(self, endpoint: str, params: dict | None = None) -> dict | None:
         if not self.api_key:
-            logger.warning("API_FOOTBALL_KEY not set — skipping request to %s", endpoint)
+            logger.warning("API_FOOTBALL_KEY not set - skipping request to %s", endpoint)
             return None
         q = await self._load_quota()
         if q.get("halted"):
@@ -160,7 +160,7 @@ class ApiFootballClient:
                 remaining = q.get("requests_remaining")
                 if remaining is not None:
                     logger.info(
-                        "API-Football %s OK — %s requests remaining today",
+                        "API-Football %s OK - %s requests remaining today",
                         endpoint,
                         remaining,
                     )

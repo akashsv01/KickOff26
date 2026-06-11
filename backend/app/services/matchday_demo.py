@@ -1,4 +1,4 @@
-"""DEMO live loop — simulated scores/events for local development.
+"""DEMO live loop - simulated scores/events for local development.
 
 Runs only when LIVE_DATA_MODE=demo. Never calls API-Football (zero quota usage).
 Emits the same supported event/alert types as api mode (see matchday_alerts.py).
@@ -49,8 +49,8 @@ async def _broadcast_match_update(db, match: Match, pre_probs: dict) -> None:
 
 
 async def run_demo_live_loop() -> None:
-    """Background task — DEMO mode only (simulated live match)."""
-    logger.info("Demo live loop started (LIVE_DATA_MODE=demo — no API calls)")
+    """Background task - DEMO mode only (simulated live match)."""
+    logger.info("Demo live loop started (LIVE_DATA_MODE=demo - no API calls)")
 
     while True:
         await asyncio.sleep(DEMO_TICK_SECONDS)

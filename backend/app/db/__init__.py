@@ -67,6 +67,76 @@ def _migrate_room_columns(sync_conn) -> None:
         sync_conn.execute(text("ALTER TABLE rooms ADD COLUMN polls JSON"))
 
 
+def _migrate_worldcup_api_columns(sync_conn) -> None:
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    tables = set(insp.get_table_names())
+
+    if "teams" in tables:
+        cols = {c["name"] for c in insp.get_columns("teams")}
+        for col, ddl in (
+            ("api_object_id", "VARCHAR(32)"),
+            ("api_seq_id", "VARCHAR(16)"),
+            ("iso2", "VARCHAR(4)"),
+        ):
+            if col not in cols:
+                sync_conn.execute(text(f"ALTER TABLE teams ADD COLUMN {col} {ddl}"))
+
+    if "matches" in tables:
+        cols = {c["name"] for c in insp.get_columns("matches")}
+        for col, ddl in (
+            ("api_object_id", "VARCHAR(32)"),
+            ("api_seq_id", "VARCHAR(16)"),
+            ("stadium_id", "INTEGER"),
+            ("matchday", "VARCHAR(8)"),
+            ("wc_match_type", "VARCHAR(32)"),
+        ):
+            if col not in cols:
+                sync_conn.execute(text(f"ALTER TABLE matches ADD COLUMN {col} {ddl}"))
+
+
+def _migrate_user_profile_columns(sync_conn) -> None:
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    if "users" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("users")}
+    for col, ddl in (
+        ("favorite_team_id", "INTEGER"),
+        ("country_region", "VARCHAR(64)"),
+        ("preferred_language", "VARCHAR(16)"),
+    ):
+        if col not in cols:
+            sync_conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+
+
+def _migrate_team_roster_table(sync_conn) -> None:
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    if "team_rosters" in insp.get_table_names():
+        return
+    sync_conn.execute(
+        text(
+            """
+            CREATE TABLE team_rosters (
+                team_id INTEGER PRIMARY KEY,
+                zafronix_slug VARCHAR(120),
+                players JSON,
+                coach VARCHAR(120),
+                fetch_status VARCHAR(16) DEFAULT 'pending',
+                error_message VARCHAR(255),
+                fetched_at TIMESTAMP,
+                retry_after TIMESTAMP,
+                FOREIGN KEY(team_id) REFERENCES teams(id) ON DELETE CASCADE
+            )
+            """
+        )
+    )
+
+
 async def init_db() -> None:
     from app import models  # noqa: F401
 
@@ -74,3 +144,6 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_migrate_match_calendar_columns)
         await conn.run_sync(_migrate_room_columns)
+        await conn.run_sync(_migrate_worldcup_api_columns)
+        await conn.run_sync(_migrate_user_profile_columns)
+        await conn.run_sync(_migrate_team_roster_table)

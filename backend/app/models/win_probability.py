@@ -10,7 +10,7 @@ from app.services.tournament_2026 import HISTORICAL_RESULTS, OFFICIAL_TEAMS as M
 HOME_ADVANTAGE_ELO = 65
 BASE_GOALS = 1.32
 ELO_GOAL_SCALE = 0.52  # how strongly Elo gap affects expected goals
-ELO_K = 16  # light calibration — preserve seed spreads
+ELO_K = 16  # light calibration - preserve seed spreads
 
 
 @dataclass

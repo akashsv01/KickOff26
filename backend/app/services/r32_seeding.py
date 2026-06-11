@@ -1,4 +1,4 @@
-"""Official FIFA World Cup 2026 Round of 32 seeding."""
+"""Official World Cup 2026 Round of 32 seeding."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _third(eligible_groups: list[str], opponent_group: str) -> dict:
     }
 
 
-# Official R32 template — index 0 = bracket slot r32-1 (WC match 73).
+# Official R32 template - index 0 = bracket slot r32-1 (WC match 73).
 R32_OFFICIAL_TEMPLATE: list[tuple[dict, dict]] = [
     (_fixed("2A"), _fixed("2B")),
     (_fixed("1E"), _third(["A", "B", "C", "D", "F"], "E")),

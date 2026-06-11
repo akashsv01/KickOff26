@@ -4,6 +4,7 @@
 @import "../styles/matchday.css";
 @import "../styles/watch.css";
 @import "../styles/home.css";
+@import "../styles/pages.css";
 
 @tailwind base;
 @tailwind components;
@@ -331,10 +332,10 @@ button.card:hover {
   opacity: 0.85;
 }
 
-/* App-wide toast (portal, top-right — avoids overlap with page content) */
+/* App-wide toast (portal, top-right - avoids overlap with page content) */
 .app-toast-stack {
   position: fixed;
-  top: 1rem;
+  top: calc(4.75rem + env(safe-area-inset-top, 0px));
   right: 1rem;
   z-index: 9999;
   width: min(22rem, calc(100vw - 2rem));
@@ -412,7 +413,7 @@ button.card:hover {
   }
 }
 
-/* FanPlan — premium travel planner */
+/* FanPlan - premium travel planner */
 .fanplan-shell {
   position: relative;
   isolation: isolate;
@@ -954,6 +955,121 @@ button.card:hover {
 
 .fanplan-map-popup .leaflet-popup-content-wrapper {
   border-radius: 0.5rem;
+}
+
+/* Auth - signup / login */
+.auth-shell {
+  padding-bottom: 2rem;
+}
+
+.auth-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--app-gold, #d4af37);
+}
+
+.auth-subtitle {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--app-text) 72%, transparent);
+}
+
+.auth-card {
+  border-radius: var(--md-radius-lg, 1.125rem);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  padding: 1.5rem;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 1px 0 var(--glass-inset) inset, var(--glass-shadow);
+}
+
+.auth-mode-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in srgb, var(--app-bg-mid) 80%, transparent);
+}
+
+.auth-mode-btn {
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--app-text) 70%, transparent);
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.auth-mode-btn-active {
+  background: var(--app-gold-subtle);
+  color: var(--app-gold);
+  border: 1px solid var(--app-gold-border);
+}
+
+.auth-field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--app-text) 75%, transparent);
+}
+
+.auth-field-input {
+  width: 100%;
+  border-radius: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--app-text) 18%, transparent);
+  background: color-mix(in srgb, var(--app-bg) 92%, transparent);
+  padding: 0.55rem 0.75rem;
+  color: var(--app-text);
+  font-size: 0.95rem;
+}
+
+.auth-field-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--app-gold) 55%, transparent);
+  outline-offset: 1px;
+  border-color: var(--app-gold-border);
+}
+
+.auth-field-hint {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--app-text) 50%, transparent);
+}
+
+.auth-error {
+  font-size: 0.875rem;
+  color: #f87171;
+}
+
+.auth-team-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.15rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--app-text) 15%, transparent);
+  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.auth-team-chip-selected {
+  border-color: var(--app-gold-border);
+  background: var(--app-gold-subtle);
+  color: var(--app-gold);
+}
+
+.auth-team-chip-favorite {
+  cursor: default;
 }
 
 /* Respect reduced-motion for the shared card/button microinteractions */

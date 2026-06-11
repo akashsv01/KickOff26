@@ -61,7 +61,7 @@ export async function api<T>(
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error(
-        `Request timed out — is the backend running at ${API_URL}?`
+        `Request timed out - is the backend running at ${API_URL}?`
       );
     }
     if (err instanceof TypeError) {

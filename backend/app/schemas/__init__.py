@@ -1,12 +1,41 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+ALLOWED_LANGUAGES = frozenset({"en", "es", "fr", "de", "pt", "ar", "zh", "ja", "ko", "it", "nl"})
 
 
 class UserCreate(BaseModel):
     email: EmailStr
     username: str = Field(min_length=3, max_length=100)
     password: str = Field(min_length=6)
+    favorite_team_id: int
+    country_region: str | None = Field(default=None, max_length=64)
+    preferred_language: str | None = Field(default=None, max_length=16)
+    followed_team_ids: list[int] = Field(default_factory=list, max_length=8)
+
+    @field_validator("country_region")
+    @classmethod
+    def strip_country(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
+
+    @field_validator("preferred_language")
+    @classmethod
+    def normalize_language(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        lang = str(value).strip().lower()
+        if lang not in ALLOWED_LANGUAGES:
+            raise ValueError(f"Language must be one of: {', '.join(sorted(ALLOWED_LANGUAGES))}")
+        return lang
+
+    @field_validator("followed_team_ids")
+    @classmethod
+    def dedupe_follows(cls, value: list[int]) -> list[int]:
+        return list(dict.fromkeys(value))
 
 
 class UserLogin(BaseModel):
@@ -19,6 +48,9 @@ class UserResponse(BaseModel):
     email: str
     username: str
     followed_team_ids: list[int] = []
+    favorite_team_id: int | None = None
+    country_region: str | None = None
+    preferred_language: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -38,6 +70,35 @@ class TeamResponse(BaseModel):
     flag_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class SquadPlayerResponse(BaseModel):
+    jersey: int | None = None
+    name: str
+    position: str
+    club: str | None = None
+    is_captain: bool = False
+
+
+class SquadBlockResponse(BaseModel):
+    status: str
+    players_by_position: dict[str, list[SquadPlayerResponse]] = {}
+    fetched_at: str | None = None
+
+
+class PlayerToWatchResponse(BaseModel):
+    player: str
+    reason: str
+    image_url: str | None = None
+
+
+class TeamProfileResponse(BaseModel):
+    team: TeamResponse
+    coach: str | None = None
+    coach_source: str | None = None
+    coach_display: str
+    squad: SquadBlockResponse
+    player_to_watch: PlayerToWatchResponse | None = None
 
 
 class MatchEvent(BaseModel):

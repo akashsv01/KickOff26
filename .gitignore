@@ -31,5 +31,9 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# Local databases & TS build cache
+*.db
+tsconfig.tsbuildinfo
+
 # Logs
 *.log

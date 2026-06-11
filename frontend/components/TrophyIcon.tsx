@@ -14,7 +14,7 @@ import {
 } from "@/lib/trophyPaths";
 
 /**
- * Original KickOff26 championship trophy — theme-aware gold gradient.
+ * Original KickOff26 championship trophy - theme-aware gold gradient.
  * Uses the shared geometry so the navbar logo and the favicon stay identical.
  */
 export function TrophyIcon({ className }: { className?: string }) {

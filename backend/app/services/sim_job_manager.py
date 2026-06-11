@@ -1,4 +1,4 @@
-"""Background Monte Carlo jobs — process pool, progress streaming, guardrails."""
+"""Background Monte Carlo jobs - process pool, progress streaming, guardrails."""
 
 from __future__ import annotations
 

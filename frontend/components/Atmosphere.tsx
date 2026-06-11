@@ -14,7 +14,7 @@ function intensityForPath(pathname: string): Intensity {
 
 /**
  * Shared, non-interactive World Cup atmosphere rendered fixed behind all
- * content. Purely visual — pointer-events: none and z-index below the app.
+ * content. Purely visual - pointer-events: none and z-index below the app.
  */
 export function Atmosphere() {
   const pathname = usePathname();
@@ -22,16 +22,16 @@ export function Atmosphere() {
 
   return (
     <div className="atmos" data-intensity={intensity} aria-hidden="true">
-      {/* Layer 1 — foundation */}
+      {/* Layer 1 - foundation */}
       <div className="atmos-foundation" />
 
-      {/* Layer 2 — ambient color washes */}
+      {/* Layer 2 - ambient color washes */}
       <div className="atmos-washes" />
 
-      {/* Layer 4 — floodlights */}
+      {/* Layer 4 - floodlights */}
       <div className="atmos-floodlights" />
 
-      {/* Layer 5 — pitch geometry */}
+      {/* Layer 5 - pitch geometry */}
       <div className="atmos-pitch">
         <svg
           viewBox="0 0 1440 900"
@@ -57,7 +57,7 @@ export function Atmosphere() {
         </svg>
       </div>
 
-      {/* Layer 3 — stadium silhouette */}
+      {/* Layer 3 - stadium silhouette */}
       <div className="atmos-stadium">
         <svg
           viewBox="0 0 1440 640"
@@ -100,10 +100,10 @@ export function Atmosphere() {
         </svg>
       </div>
 
-      {/* Layer 6 — grain texture */}
+      {/* Layer 6 - grain texture */}
       <div className="atmos-noise" />
 
-      {/* Layer 7 — floating particles */}
+      {/* Layer 7 - floating particles */}
       <div className="atmos-particles">
         <span className="atmos-particle" />
         <span className="atmos-particle" />

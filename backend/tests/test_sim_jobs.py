@@ -1,4 +1,4 @@
-"""Monte Carlo job manager — non-blocking execution and guardrails."""
+"""Monte Carlo job manager - non-blocking execution and guardrails."""
 
 from __future__ import annotations
 

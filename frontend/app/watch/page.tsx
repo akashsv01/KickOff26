@@ -21,7 +21,7 @@ import { useWebSocket } from "@/lib/websocket";
 
 export default function WatchPage() {
   return (
-    <Suspense fallback={<FootballLoader layout="section" label="Loading WatchTogether…" />}>
+    <Suspense fallback={<FootballLoader layout="section" label="Loading Fan Rooms…" />}>
       <WatchPageContent />
     </Suspense>
   );
@@ -225,15 +225,15 @@ function WatchPageContent() {
   }
 
   if (loading) {
-    return <FootballLoader layout="section" label="Loading WatchTogether…" />;
+    return <FootballLoader layout="section" label="Loading Fan Rooms…" />;
   }
 
   return (
     <div className="matchday-shell watch-shell">
       <header className="watch-page-header">
         <div>
-          <h1 className="watch-page-title">WatchTogether</h1>
-          <p className="watch-page-sub">Real-time fan rooms for every match — chat, polls, and live reactions.</p>
+          <h1 className="watch-page-title">Watch Parties</h1>
+          <p className="watch-page-sub">Real-time fan rooms for every match - chat, polls, and live reactions.</p>
         </div>
         <span className={connected ? "watch-live-indicator" : "watch-offline-indicator"}>
           <span className="watch-live-dot" aria-hidden />
@@ -273,6 +273,7 @@ function WatchPageContent() {
               connected={connected}
               currentUsername={currentUsername}
               userId={user?.id}
+              isLoggedIn={!!user}
               onSendMessage={sendMessage}
               onCreatePoll={createPoll}
               onVote={votePoll}

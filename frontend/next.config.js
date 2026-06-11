@@ -1,12 +1,26 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: { unoptimized: true },
-  // Avoid Windows ENOENT/rename failures on .next/cache during hot reload.
-  webpack: (config, { dev }) => {
+  // Reduce Windows hot-reload ENOENT / client-reference-manifest corruption.
+  webpack: (config, { dev, isServer }) => {
     if (dev && process.platform === "win32") {
       config.cache = { type: "memory" };
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+        ignored: ["**/.next/**", "**/node_modules/**"],
+      };
+    }
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+      };
     }
     return config;
+  },
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 5,
   },
 };
 

@@ -1,6 +1,6 @@
 /**
  * Tournament team code (3-letter) → ISO 3166-1 alpha-2 (or flag-icons subdivision code).
- * Country flags only — no federation crests or trademarked logos.
+ * Country flags only - no federation crests or trademarked logos.
  */
 export const TEAM_CODE_TO_ISO2: Record<string, string> = {
   MEX: "mx",

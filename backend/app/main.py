@@ -10,52 +10,57 @@ from app.api import auth, bracket, fanplan, matchday, rooms, teams
 from app.config import settings
 from app.db import async_session, init_db
 from app.services.data_ingestion import DataIngestionService
-from app.services.lineup_fetcher import run_lineup_fetcher
-from app.services.live_poller import bootstrap_api_mode, run_live_poller
 from app.services.matchday import ensure_demo_live_match
 from app.services.matchday_demo import run_demo_live_loop
-from app.services.match_lineups import ensure_demo_lineups
+from app.services.match_lineups import clear_stored_lineups
+from app.services.roster_prefetch import run_roster_prefetch_loop
+from app.services.worldcup_poller import bootstrap_worldcup_mode, run_worldcup_poller
 from app.websocket.handler import router as ws_router
 
 logger = logging.getLogger(__name__)
 _live_task: asyncio.Task | None = None
 _lineup_task: asyncio.Task | None = None
+_roster_task: asyncio.Task | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _live_task, _lineup_task
+    global _live_task, _lineup_task, _roster_task
     await init_db()
     async with async_session() as db:
         ingestion = DataIngestionService(db)
         await ingestion.sync_all(force=not settings.is_mock)
 
+        cleared = await clear_stored_lineups(db)
+        if cleared:
+            logger.info("Cleared %s cached match lineup(s) — only API-sourced lineups are shown", cleared)
+
         if settings.is_demo_live:
-            seeded = await ensure_demo_lineups(db)
             await ensure_demo_live_match(db)
-            logger.info(
-                "LIVE_DATA_MODE=demo — %s demo lineups seeded, live match ready (no API calls)",
-                seeded,
-            )
+            logger.info("LIVE_DATA_MODE=demo - live match ready (no API calls, no fabricated lineups)")
         elif settings.is_api_live:
-            await bootstrap_api_mode(db)
-            logger.info("LIVE_DATA_MODE=api — fixture IDs linked, poller will start")
+            # Real data via the rezarahiminia World Cup 2026 API (lineups only when API publishes them).
+            await bootstrap_worldcup_mode(db)
+            logger.info(
+                "LIVE_DATA_MODE=api - WorldCup26 reference synced, live poller will start"
+            )
 
         await db.commit()
 
     if not os.environ.get("TESTING"):
         if settings.is_api_live:
-            _live_task = asyncio.create_task(run_live_poller())
-            _lineup_task = asyncio.create_task(run_lineup_fetcher())
+            _live_task = asyncio.create_task(run_worldcup_poller())
         else:
             _live_task = asyncio.create_task(run_demo_live_loop())
+        if settings.has_zafronix_key:
+            _roster_task = asyncio.create_task(run_roster_prefetch_loop())
 
     yield
 
     from app.services.sim_job_manager import sim_job_manager
 
     sim_job_manager.shutdown()
-    for task in (_live_task, _lineup_task):
+    for task in (_live_task, _lineup_task, _roster_task):
         if task:
             task.cancel()
             try:
@@ -98,9 +103,12 @@ async def health():
         "live_data_mode": settings.live_data_mode,
     }
     if settings.is_api_live:
-        async with async_session() as db:
-            from app.services.api_football import ApiFootballClient
+        payload["live_source"] = "worldcup26.ir (rezarahiminia)"
+        payload["worldcup_api_token_set"] = settings.has_worldcup_token
+        from app.services.worldcup_api import WorldCupApiClient
 
-            payload["api_quota"] = await ApiFootballClient(db).get_quota_status()
+        payload["worldcup_rate"] = WorldCupApiClient.rate_stats()
+        payload["worldcup_poll_live_seconds"] = settings.worldcup_poll_live_seconds
+    payload["zafronix_api_key_set"] = settings.has_zafronix_key
     return payload
 

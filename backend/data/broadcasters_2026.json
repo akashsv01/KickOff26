@@ -1,0 +1,117 @@
+{
+  "_comment": "Official 2026 tournament broadcasters by country, confirmed as of June 2026. Keyed by ISO 3166-1 alpha-2 country code (match to the user's signup country). 'broadcasters' lists official rights-holders with a 'name', whether it's 'free' to air, and an official homepage 'url'. Broadcast rights vary by country and some deals were still finalizing near kickoff - always pair this with the official fallback link. Do NOT present these as per-match stream URLs; they are the official rights-holders' homepages.",
+  "_fallback": {
+    "label": "Find your local broadcaster",
+    "note": "Broadcast availability varies by country. Check the official tournament site for broadcasters in your region.",
+    "url": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026"
+  },
+  "US": {
+    "country": "United States",
+    "broadcasters": [
+      { "name": "FOX / FS1 (English)", "free": false, "url": "https://www.foxsports.com" },
+      { "name": "Telemundo / Universo (Spanish)", "free": false, "url": "https://www.telemundo.com/deportes" },
+      { "name": "Peacock (Spanish streaming)", "free": false, "url": "https://www.peacocktv.com" }
+    ]
+  },
+  "CA": {
+    "country": "Canada",
+    "broadcasters": [
+      { "name": "CTV (free, select matches)", "free": true, "url": "https://www.ctv.ca" },
+      { "name": "TSN (English, all matches)", "free": false, "url": "https://www.tsn.ca" },
+      { "name": "RDS (French)", "free": false, "url": "https://www.rds.ca" }
+    ]
+  },
+  "MX": {
+    "country": "Mexico",
+    "broadcasters": [
+      { "name": "TelevisaUnivision / ViX", "free": true, "url": "https://www.vix.com" },
+      { "name": "TV Azteca", "free": true, "url": "https://www.tvazteca.com" }
+    ]
+  },
+  "GB": {
+    "country": "United Kingdom",
+    "broadcasters": [
+      { "name": "BBC (free, BBC iPlayer)", "free": true, "url": "https://www.bbc.co.uk/iplayer" },
+      { "name": "ITV (free, ITVX)", "free": true, "url": "https://www.itv.com/watch" }
+    ]
+  },
+  "FR": {
+    "country": "France",
+    "broadcasters": [
+      { "name": "M6 (free, 54 matches)", "free": true, "url": "https://www.6play.fr" },
+      { "name": "beIN Sports (all matches)", "free": false, "url": "https://www.beinsports.com/fr" }
+    ]
+  },
+  "DE": {
+    "country": "Germany",
+    "broadcasters": [
+      { "name": "ARD (free, select)", "free": true, "url": "https://www.ardmediathek.de" },
+      { "name": "ZDF (free, select)", "free": true, "url": "https://www.zdf.de" },
+      { "name": "MagentaTV (all 104)", "free": false, "url": "https://www.telekom.de/magenta-tv" }
+    ]
+  },
+  "ES": {
+    "country": "Spain",
+    "broadcasters": [
+      { "name": "Official broadcaster - confirm locally", "free": true, "url": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026" }
+    ]
+  },
+  "BR": {
+    "country": "Brazil",
+    "broadcasters": [
+      { "name": "Grupo Globo (TV Globo / SporTV)", "free": true, "url": "https://globoplay.globo.com" },
+      { "name": "CazeTV (free, YouTube, all 104)", "free": true, "url": "https://www.youtube.com/@CazeTV" }
+    ]
+  },
+  "AR": {
+    "country": "Argentina",
+    "broadcasters": [
+      { "name": "Official broadcaster - confirm locally", "free": false, "url": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026" }
+    ]
+  },
+  "AU": {
+    "country": "Australia",
+    "broadcasters": [
+      { "name": "SBS / SBS On Demand (free)", "free": true, "url": "https://www.sbs.com.au/sport" }
+    ]
+  },
+  "IN": {
+    "country": "India",
+    "broadcasters": [
+      { "name": "Official broadcaster - confirm locally (deal finalized near kickoff)", "free": false, "url": "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026" }
+    ]
+  },
+  "ZA": {
+    "country": "South Africa",
+    "broadcasters": [
+      { "name": "SABC / SABC Plus (free)", "free": true, "url": "https://www.sabcplus.com" }
+    ]
+  },
+  "SE": {
+    "country": "Sweden",
+    "broadcasters": [
+      { "name": "SVT (free)", "free": true, "url": "https://www.svtplay.se" },
+      { "name": "TV4", "free": false, "url": "https://www.tv4play.se" }
+    ]
+  },
+  "NO": {
+    "country": "Norway",
+    "broadcasters": [
+      { "name": "NRK (free)", "free": true, "url": "https://tv.nrk.no" },
+      { "name": "TV2", "free": false, "url": "https://play.tv2.no" }
+    ]
+  },
+  "DK": {
+    "country": "Denmark",
+    "broadcasters": [
+      { "name": "DR (free)", "free": true, "url": "https://www.dr.dk/drtv" },
+      { "name": "TV2", "free": false, "url": "https://play.tv2.dk" }
+    ]
+  },
+  "_mena_note": "beIN Sports holds rights across the MENA region (24 countries incl. SA, AE, QA, KW, BH, OM, IQ, JO, LB, EG, LY, TN, DZ, MA, SD, MR, etc.) via beIN CONNECT.",
+  "SA": { "country": "Saudi Arabia", "broadcasters": [ { "name": "beIN Sports (MENA)", "free": false, "url": "https://www.beinsports.com/en" } ] },
+  "AE": { "country": "United Arab Emirates", "broadcasters": [ { "name": "beIN Sports (MENA)", "free": false, "url": "https://www.beinsports.com/en" } ] },
+  "QA": { "country": "Qatar", "broadcasters": [ { "name": "beIN Sports (MENA)", "free": false, "url": "https://www.beinsports.com/en" } ] },
+  "EG": { "country": "Egypt", "broadcasters": [ { "name": "beIN Sports (MENA)", "free": false, "url": "https://www.beinsports.com/en" } ] },
+  "MA": { "country": "Morocco", "broadcasters": [ { "name": "beIN Sports (MENA)", "free": false, "url": "https://www.beinsports.com/en" } ] }
+}

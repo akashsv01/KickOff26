@@ -191,7 +191,7 @@ def parse_fixtures(raw: dict | None = None) -> list[dict]:
         home = team_code(m["team1"])
         away = team_code(m["team2"])
         local_date, kickoff_at, iana_tz = parse_kickoff(m["date"], m.get("time", ""), ground)
-        # Official FIFA schedule PDF buckets by Eastern Time calendar day.
+        # Official 2026 schedule PDF buckets by Eastern Time calendar day.
         calendar_date = kickoff_at.astimezone(SCHEDULE_CALENDAR_TZ).date().isoformat()
         info = HOST_CITIES.get(city, {})
 

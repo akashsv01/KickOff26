@@ -146,7 +146,7 @@ async def poll_once(db: AsyncSession) -> float:
     if await client.is_halted():
         q = await client.get_quota_status()
         logger.warning(
-            "API-Football polling halted — %s requests remaining, serving DB state",
+            "API-Football polling halted - %s requests remaining, serving DB state",
             q.get("requests_remaining"),
         )
         return INTERVAL_LIVE_DEFAULT
@@ -203,7 +203,7 @@ async def run_live_poller() -> None:
 
 async def bootstrap_api_mode(db: AsyncSession) -> None:
     if not settings.effective_api_football_key:
-        logger.warning("LIVE_DATA_MODE=api but API_FOOTBALL_KEY is empty — poller will idle")
+        logger.warning("LIVE_DATA_MODE=api but API_FOOTBALL_KEY is empty - poller will idle")
         return
     client = ApiFootballClient(db)
     if await client.is_halted():

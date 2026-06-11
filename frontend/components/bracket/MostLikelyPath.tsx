@@ -4,7 +4,7 @@ import { InfoTooltip } from "@/components/InfoTooltip";
 import { TeamFlag } from "@/components/TeamFlag";
 
 const PATH_FREQUENCY_TOOLTIP =
-  "This is the single most common complete bracket across all simulations. Any one exact full bracket is rare because it combines the outcomes of many matches — so even the most likely complete path appears in only a small fraction of runs. Individual round-by-round predictions are far more probable than the full bracket as a whole.";
+  "This is the single most common complete bracket across all simulations. Any one exact full bracket is rare because it combines the outcomes of many matches - so even the most likely complete path appears in only a small fraction of runs. Individual round-by-round predictions are far more probable than the full bracket as a whole.";
 
 type PathRound = {
   id: string;

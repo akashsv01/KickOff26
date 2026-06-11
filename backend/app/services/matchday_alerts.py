@@ -168,26 +168,26 @@ def format_event_message(match: Match, event: dict) -> str:
 
     if ev_type == "goal":
         return (
-            f"GOAL! {team_label} ({player}) — "
+            f"GOAL! {team_label} ({player}) - "
             f"{match.home_score}-{match.away_score} {minute}'"
         )
     if ev_type == "yellow_card":
-        return f"YELLOW CARD — {team_label} ({player}) {minute}'"
+        return f"YELLOW CARD - {team_label} ({player}) {minute}'"
     if ev_type == "red_card":
-        return f"RED CARD — {team_label} ({player}) {minute}'"
+        return f"RED CARD - {team_label} ({player}) {minute}'"
     if ev_type == "substitution":
         sub_detail = f" ({detail})" if detail else ""
-        return f"SUBSTITUTION — {team_label}: {player}{sub_detail} {minute}'"
+        return f"SUBSTITUTION - {team_label}: {player}{sub_detail} {minute}'"
     if ev_type == "penalty":
         if detail == "missed":
-            return f"PENALTY MISSED — {team_label} ({player}) {minute}'"
+            return f"PENALTY MISSED - {team_label} ({player}) {minute}'"
         return (
-            f"PENALTY GOAL — {team_label} ({player}) — "
+            f"PENALTY GOAL - {team_label} ({player}) - "
             f"{match.home_score}-{match.away_score} {minute}'"
         )
     if ev_type == "var":
-        return f"VAR — {detail} ({team_label}) {minute}'"
-    return f"{ev_type} — {team_label} {minute}'"
+        return f"VAR - {detail} ({team_label}) {minute}'"
+    return f"{ev_type} - {team_label} {minute}'"
 
 
 def build_event_alert(match: Match, event: dict) -> dict:

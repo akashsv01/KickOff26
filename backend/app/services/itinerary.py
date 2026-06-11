@@ -1,4 +1,4 @@
-"""Itinerary optimizer for fan travel across 16 host cities — real fixtures, estimated costs."""
+"""Itinerary optimizer for fan travel across 16 host cities - real fixtures, estimated costs."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from app.services.ticket_estimates import (
 )
 from app.services.tournament_2026 import HOST_CITIES
 
-# Travel time heuristics (clearly estimates — not airline schedules)
+# Travel time heuristics (clearly estimates - not airline schedules)
 GROUND_THRESHOLD_KM = 300
 GROUND_SPEED_KMH = 80
 FLIGHT_EFFECTIVE_SPEED_KMH = 700
@@ -138,7 +138,7 @@ def _select_best_path(
 ) -> tuple[list[dict], list[str]]:
     """
     Maximize matches attendable in chronological order under city, budget, and travel constraints.
-    Uses O(n^2) dynamic programming — never stops early when a longer feasible path exists.
+    Uses O(n^2) dynamic programming - never stops early when a longer feasible path exists.
     """
     notes: list[str] = []
     n = len(relevant)
@@ -166,7 +166,7 @@ def _select_best_path(
     if not valid_ends:
         for m in relevant:
             reason = _skip_reason([], m, max_cities, budget_usd) or "does not fit your constraints"
-            notes.append(f"Skipped {_match_label(m)} — {reason}.")
+            notes.append(f"Skipped {_match_label(m)} - {reason}.")
         return [], notes
 
     best_end = max(
@@ -191,7 +191,7 @@ def _select_best_path(
                 "other chosen matches fill your route more completely"
             )
 
-        notes.append(f"Skipped {_match_label(m)} — {reason}.")
+        notes.append(f"Skipped {_match_label(m)} - {reason}.")
 
     cities_used = _cities_in_path(best)
     if best and len(cities_used) >= max_cities:

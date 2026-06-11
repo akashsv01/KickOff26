@@ -12,7 +12,7 @@ export const ROUND_HEIGHT_UNITS: Record<RoundId, number> = {
   final: 16,
 };
 
-/** Vertical pixels per r32 slot — must fit a two-team matchup box without overlap. */
+/** Vertical pixels per r32 slot - must fit a two-team matchup box without overlap. */
 export const MATCH_UNIT_PX = 96;
 
 export function parseSlotId(slotId: string): { roundId: RoundId; index: number } | null {

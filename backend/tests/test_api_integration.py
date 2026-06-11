@@ -128,13 +128,25 @@ async def test_champion_poster(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_duplicate_username_rejected(client: AsyncClient):
+    teams = (await client.get("/api/teams")).json()
+    favorite = teams[0]["id"]
     await client.post(
         "/api/auth/register",
-        json={"email": "a@test.com", "username": "dupeuser", "password": "secret123"},
+        json={
+            "email": "a@test.com",
+            "username": "dupeuser",
+            "password": "secret123",
+            "favorite_team_id": favorite,
+        },
     )
     res = await client.post(
         "/api/auth/register",
-        json={"email": "b@test.com", "username": "dupeuser", "password": "secret123"},
+        json={
+            "email": "b@test.com",
+            "username": "dupeuser",
+            "password": "secret123",
+            "favorite_team_id": favorite,
+        },
     )
     assert res.status_code == 400
     assert "username" in res.json()["detail"].lower()

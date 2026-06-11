@@ -94,7 +94,7 @@ export default function MatchDetailPage() {
         <div className="md-glass border-red-500/30 p-6">
           <p className="text-red-300">{error ?? "Match not found"}</p>
           <Link href="/matchday" className="md-btn md-btn-secondary mt-4 inline-flex">
-            Back to MatchDay
+            Back to Live Matches
           </Link>
         </div>
       </div>
@@ -112,7 +112,7 @@ export default function MatchDetailPage() {
         href="/matchday"
         className="inline-flex text-sm text-champagne/90 transition hover:text-champagne"
       >
-        ← Back to MatchDay
+        ← Back to Live Matches
       </Link>
 
       <div className={`md-glass p-6 md-animate-in ${isLive ? "md-glass-live md-glass-hero" : ""}`}>
@@ -133,7 +133,7 @@ export default function MatchDetailPage() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-8">
             <TeamBlock team={match.home_team} score={match.home_score} />
-            <span className="text-3xl font-light tracking-widest text-app-faint">–</span>
+            <span className="text-3xl font-light tracking-widest text-app-faint">-</span>
             <TeamBlock team={match.away_team} score={match.away_score} align="right" />
           </div>
 
@@ -169,7 +169,7 @@ export default function MatchDetailPage() {
             </button>
             {!isFinished && (
               <Link href={`/watch?match=${match.id}`} className="md-btn md-btn-primary">
-                Join WatchTogether room
+                Join Fan Room
               </Link>
             )}
           </div>
@@ -185,7 +185,7 @@ export default function MatchDetailPage() {
                 <li key={i} className="md-timeline-item flex gap-3 text-sm">
                   <span className="w-10 shrink-0 font-mono tabular-nums text-app-faint">{e.minute}&apos;</span>
                   <span className="text-app-secondary">
-                    {eventLabel(e)} {e.player ? `— ${e.player}` : ""}
+                    {eventLabel(e)} {e.player ? `- ${e.player}` : ""}
                   </span>
                 </li>
               ))}
@@ -272,7 +272,7 @@ function LineupCard({
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm text-app-faint">Lineup not available.</p>
+          <p className="mt-2 text-sm text-app-faint">Lineups not yet available.</p>
         )}
       </div>
     </div>

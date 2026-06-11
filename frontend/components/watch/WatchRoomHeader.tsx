@@ -6,7 +6,7 @@ import { TeamFlag } from "@/components/TeamFlag";
 import { AnimatedScore } from "@/components/matchday/AnimatedScore";
 import { LiveBadge } from "@/components/matchday/LiveBadge";
 import { formatKickoff, matchDetailHref, type Match } from "@/lib/matchday";
-import { FIFA_LINKS, matchHeaderLine, type WatchParticipant } from "@/lib/watch";
+import { OFFICIAL_TOURNAMENT_LINKS, matchHeaderLine, type WatchParticipant } from "@/lib/watch";
 import { WatchPresenceStrip } from "./WatchPresence";
 
 type Props = {
@@ -50,7 +50,7 @@ export function WatchRoomHeader({ match, watcherCount, participants, connected }
 
       <div className="watch-match-hero-top">
         <div className="watch-match-hero-brand">
-          <p className="watch-room-eyebrow">WatchTogether</p>
+          <p className="watch-room-eyebrow">Fan Rooms</p>
           <WatchPresenceStrip count={watcherCount} participants={participants} />
         </div>
         <span className={connected ? "watch-live-indicator" : "watch-offline-indicator"}>
@@ -79,7 +79,7 @@ export function WatchRoomHeader({ match, watcherCount, participants, connected }
 
           <div className={`watch-hero-score-row${scorePulse ? " watch-hero-score-pulse" : ""}`}>
             <AnimatedScore value={match.home_score} large />
-            <span className="watch-hero-score-sep">–</span>
+            <span className="watch-hero-score-sep">-</span>
             <AnimatedScore value={match.away_score} large />
           </div>
 
@@ -105,7 +105,7 @@ export function WatchRoomHeader({ match, watcherCount, participants, connected }
           Match detail
         </Link>
         <a
-          href={FIFA_LINKS.tournament}
+          href={OFFICIAL_TOURNAMENT_LINKS.tournament}
           target="_blank"
           rel="noopener noreferrer"
           className="watch-pill-btn watch-pill-btn-primary"
@@ -113,13 +113,13 @@ export function WatchRoomHeader({ match, watcherCount, participants, connected }
           Where to watch
         </a>
         <a
-          href={FIFA_LINKS.broadcasters}
+          href={OFFICIAL_TOURNAMENT_LINKS.broadcasters}
           target="_blank"
           rel="noopener noreferrer"
           className="watch-broadcast-note"
-          title="Official FIFA broadcast information — not a stream link"
+          title="Official broadcast information - not a stream link"
         >
-          Find your local broadcaster (FIFA)
+          Find your local broadcaster
         </a>
       </div>
     </header>

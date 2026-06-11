@@ -48,12 +48,25 @@ async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
     return result.scalar_one_or_none()
 
 
-async def create_user(db: AsyncSession, email: str, username: str, password: str) -> User:
+async def create_user(
+    db: AsyncSession,
+    email: str,
+    username: str,
+    password: str,
+    *,
+    favorite_team_id: int | None = None,
+    country_region: str | None = None,
+    preferred_language: str | None = None,
+    followed_team_ids: list[int] | None = None,
+) -> User:
     user = User(
         email=email,
         username=username,
         hashed_password=hash_password(password),
-        followed_team_ids=[],
+        followed_team_ids=followed_team_ids or [],
+        favorite_team_id=favorite_team_id,
+        country_region=country_region,
+        preferred_language=preferred_language,
     )
     db.add(user)
     await db.flush()

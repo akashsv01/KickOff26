@@ -37,8 +37,12 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     followed_team_ids: Mapped[list] = mapped_column(JsonField, default=list)
+    favorite_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), index=True)
+    country_region: Mapped[str | None] = mapped_column(String(64))
+    preferred_language: Mapped[str | None] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    favorite_team: Mapped["Team | None"] = relationship(foreign_keys=[favorite_team_id])
     brackets: Mapped[list["Bracket"]] = relationship(back_populates="user")
     messages: Mapped[list["Message"]] = relationship(back_populates="user")
 
@@ -53,7 +57,12 @@ class Team(Base):
     group_letter: Mapped[str | None] = mapped_column(String(2))
     elo_rating: Mapped[float] = mapped_column(Float, default=1500.0)
     flag_url: Mapped[str | None] = mapped_column(String(500))
+    # rezarahiminia API dual IDs
+    api_object_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
+    api_seq_id: Mapped[str | None] = mapped_column(String(16), unique=True, index=True)
+    iso2: Mapped[str | None] = mapped_column(String(4))
 
+    roster: Mapped["TeamRoster | None"] = relationship(back_populates="team", uselist=False)
     home_matches: Mapped[list["Match"]] = relationship(
         back_populates="home_team", foreign_keys="Match.home_team_id"
     )
@@ -62,14 +71,58 @@ class Team(Base):
     )
 
 
+class TeamRoster(Base):
+    """Cached Zafronix squad roster per team (fetch once, refresh occasionally)."""
+
+    __tablename__ = "team_rosters"
+
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True)
+    zafronix_slug: Mapped[str | None] = mapped_column(String(120))
+    players: Mapped[list] = mapped_column(JsonField, default=list)
+    coach: Mapped[str | None] = mapped_column(String(120))
+    fetch_status: Mapped[str] = mapped_column(String(16), default="pending")
+    error_message: Mapped[str | None] = mapped_column(String(255))
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    retry_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    team: Mapped["Team"] = relationship(back_populates="roster")
+
+
+class Stadium(Base):
+    """World Cup 2026 venue from rezarahiminia /get/stadiums."""
+
+    __tablename__ = "stadiums"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    api_object_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
+    api_seq_id: Mapped[str | None] = mapped_column(String(16), unique=True, index=True)
+    name_en: Mapped[str] = mapped_column(String(200))
+    name_fa: Mapped[str | None] = mapped_column(String(200))
+    fifa_name: Mapped[str | None] = mapped_column(String(200))
+    city_en: Mapped[str | None] = mapped_column(String(100))
+    country_en: Mapped[str | None] = mapped_column(String(50))
+    capacity: Mapped[int | None] = mapped_column(Integer)
+    region: Mapped[str | None] = mapped_column(String(50))
+    lat: Mapped[float | None] = mapped_column(Float)
+    lng: Mapped[float | None] = mapped_column(Float)
+
+    matches: Mapped[list["Match"]] = relationship(back_populates="stadium")
+
+
 class Match(Base):
     __tablename__ = "matches"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     external_id: Mapped[str | None] = mapped_column(String(50), unique=True, index=True)
     api_fixture_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    # rezarahiminia API dual IDs (_id for live GET /get/game/{_id}, id for seq refs)
+    api_object_id: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
+    api_seq_id: Mapped[str | None] = mapped_column(String(16), index=True)
     home_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     away_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+    stadium_id: Mapped[int | None] = mapped_column(ForeignKey("stadiums.id"), index=True)
+    matchday: Mapped[str | None] = mapped_column(String(8))
+    wc_match_type: Mapped[str | None] = mapped_column(String(32))
     home_score: Mapped[int | None] = mapped_column(Integer)
     away_score: Mapped[int | None] = mapped_column(Integer)
     minute: Mapped[int | None] = mapped_column(Integer)
@@ -96,6 +149,7 @@ class Match(Base):
 
     home_team: Mapped["Team"] = relationship(back_populates="home_matches", foreign_keys=[home_team_id])
     away_team: Mapped["Team"] = relationship(back_populates="away_matches", foreign_keys=[away_team_id])
+    stadium: Mapped["Stadium | None"] = relationship(back_populates="matches")
     rooms: Mapped[list["Room"]] = relationship(back_populates="match")
     timeline_events: Mapped[list["MatchEvent"]] = relationship(
         back_populates="match",

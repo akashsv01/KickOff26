@@ -1,4 +1,4 @@
-# KickOff26 — Architecture
+# KickOff26 - Architecture
 
 This document explains how KickOff26 is built: every layer, what each module is responsible for, how data flows from the source feeds to the browser in real time, and why the project uses **both SQLite and PostgreSQL**.
 
@@ -36,7 +36,7 @@ For setup and day-to-day commands, see [README.md](./README.md).
         │   websocket/handler ──► websocket/gateway (ws_manager: channel pub/sub)  │
         │                                                                          │
         │   Background asyncio tasks (started in lifespan):                        │
-        │     • live_poller  OR  matchday_demo   • lineup_fetcher                  │
+        │     • worldcup_poller  OR  matchday_demo                               │
         │   Background processes:                                                  │
         │     • sim_job_manager → ProcessPoolExecutor (Monte Carlo)               │
         └───────────────────────────────────┬──────────────────────────────────────┘
@@ -65,7 +65,7 @@ For setup and day-to-day commands, see [README.md](./README.md).
 ### Real-time update (e.g. a goal)
 1. `live_poller` (api mode) or `matchday_demo` (demo mode) detects a score/event change and writes it to the `matches` / `match_events` tables.
 2. The same loop computes alerts/probabilities and calls `ws_manager.broadcast("matches:alerts", …)`, `match:{id}`, `matches:live`.
-3. Every connection subscribed to those channels receives the JSON frame instantly — no client polling.
+3. Every connection subscribed to those channels receives the JSON frame instantly - no client polling.
 
 ### App startup (`lifespan` in [`app/main.py`](./backend/app/main.py))
 1. `init_db()` creates tables and runs lightweight column migrations.
@@ -92,9 +92,9 @@ For setup and day-to-day commands, see [README.md](./README.md).
 | `app/schemas/` | Pydantic request/response models used by the routers. |
 
 ### 4.3 Authentication ([`app/auth/__init__.py`](./backend/app/auth/__init__.py))
-- `hash_password` / `verify_password` — bcrypt via passlib (passwords are **never** stored in plaintext).
-- `create_access_token` / `decode_token` — HS256 JWT with `sub = user_id` and an expiry.
-- `get_user_by_email/username/id`, `create_user` — async user lookups.
+- `hash_password` / `verify_password` - bcrypt via passlib (passwords are **never** stored in plaintext).
+- `create_access_token` / `decode_token` - HS256 JWT with `sub = user_id` and an expiry.
+- `get_user_by_email/username/id`, `create_user` - async user lookups.
 - Used by the auth router and by the WebSocket handler (to resolve a user from a `?token=` query param).
 
 ### 4.4 HTTP API (`app/api/`, all mounted under `/api`)
@@ -115,7 +115,7 @@ For setup and day-to-day commands, see [README.md](./README.md).
 | [`gateway.py`](./backend/app/websocket/gateway.py) | The singleton `ws_manager` (`WebSocketManager`). Tracks connections and channel subscriptions under an `asyncio.Lock`; provides `subscribe`/`unsubscribe`, `broadcast(channel)`, `broadcast_all`, `send_to`, room presence (`room_participants`, `room_watcher_count`), and channel-name helpers (`match:`, `room:`, `user:`, `sim:`). |
 | [`handler.py`](./backend/app/websocket/handler.py) | The `/ws` endpoint. Accepts the socket, resolves the user from an optional `token`, and runs a receive loop handling `subscribe` / `unsubscribe` / `ping`. Subscribing/leaving a `room:{id}` triggers presence + join/leave system messages via `room_live`. Cleans up presence on disconnect. |
 
-### 4.6 Services (`app/services/`) — grouped by domain
+### 4.6 Services (`app/services/`) - grouped by domain
 
 **Static tournament data**
 | Module | Purpose |
@@ -148,9 +148,9 @@ For setup and day-to-day commands, see [README.md](./README.md).
 | `match_lineups.py` | Durable per-match lineups (fetch-once ~10 min pre-kickoff). |
 | `matchday_alerts.py` | Canonical alert/event types (goal, card, kickoff, full-time, momentum). |
 | `matchday_live.py` | Apply API-Football live snapshots to the DB and fan out WebSocket updates. |
-| `matchday_demo.py` | The **demo** live loop — simulated scores/events, zero API calls. |
-| `live_poller.py` | The **api-mode** quota-aware poller: `fixtures?live=all` → DB → WebSocket. |
-| `lineup_fetcher.py` | Background loop that bundles one lineup API call per match near kickoff. |
+| `matchday_demo.py` | The **demo** live loop - simulated scores/events, zero API calls. |
+| `worldcup_poller.py` | The **api-mode** poller: rezarahiminia API → DB → WebSocket. |
+| `live_poller.py` | Shared polling-window helpers (`compute_polling_window`). |
 
 **Win probability & simulation**
 | Module | Purpose |
@@ -198,23 +198,23 @@ KickOff26 deliberately supports two engines through one codebase. The choice is 
 ### SQLite (`kickoff26.db`)
 - **What it is:** a single local file created in `backend/`. The default in `app/config.py` is `sqlite+aiosqlite:///./kickoff26.db`, so if `DATABASE_URL` is unset, the app uses it automatically.
 - **Where it's used:**
-  - **Zero-config local runs** — clone, install, run; no database server.
-  - **The test suite** — `pytest` runs against a throwaway `test_kickoff26.db`, keeping CI fast and hermetic with no external services.
+  - **Zero-config local runs** - clone, install, run; no database server.
+  - **The test suite** - `pytest` runs against a throwaway `test_kickoff26.db`, keeping CI fast and hermetic with no external services.
 - **Trade-offs:** great for a single process and demos; not built for high concurrency, and it stores JSON as plain `JSON` (no JSONB indexing).
 
 ### PostgreSQL
 - **What it is:** the primary, production-grade datastore via the `asyncpg` driver.
 - **Where it's used:**
-  - **Local development** — `.env` ships with `DATABASE_URL=postgresql+asyncpg://postgres:admin123@localhost:5432/kickoff26`, created by `scripts/setup-postgres.ps1`.
-  - **Containers / production** — `docker-compose.yml` runs a `postgres:16-alpine` service and injects an asyncpg `DATABASE_URL` into the backend.
-- **Why:** real concurrency, durability, and `JSONB` columns (faster, indexable) — and parity with the deployed environment.
+  - **Local development** - `.env` ships with `DATABASE_URL=postgresql+asyncpg://postgres:admin123@localhost:5432/kickoff26`, created by `scripts/setup-postgres.ps1`.
+  - **Containers / production** - `docker-compose.yml` runs a `postgres:16-alpine` service and injects an asyncpg `DATABASE_URL` into the backend.
+- **Why:** real concurrency, durability, and `JSONB` columns (faster, indexable) - and parity with the deployed environment.
 
 ### How one codebase targets both
-- **Engine + connect args** — `app/db/__init__.py` detects a `sqlite` URL and adds `check_same_thread=False`; otherwise it uses Postgres defaults.
-- **Dialect-aware columns** — `JsonField = JSON().with_variant(JSONB, "postgresql")` resolves to the right type per dialect.
-- **Dialect-aware migrations** — `_migrate_*` helpers in `init_db()` branch on `sync_conn.dialect.name` (e.g. `TIMESTAMP WITH TIME ZONE` on Postgres vs `DATETIME` on SQLite).
+- **Engine + connect args** - `app/db/__init__.py` detects a `sqlite` URL and adds `check_same_thread=False`; otherwise it uses Postgres defaults.
+- **Dialect-aware columns** - `JsonField = JSON().with_variant(JSONB, "postgresql")` resolves to the right type per dialect.
+- **Dialect-aware migrations** - `_migrate_*` helpers in `init_db()` branch on `sync_conn.dialect.name` (e.g. `TIMESTAMP WITH TIME ZONE` on Postgres vs `DATETIME` on SQLite).
 
-> `kickoff26.db` / `test_kickoff26.db` are generated artifacts — delete them anytime; they're recreated on the next run/test.
+> `kickoff26.db` / `test_kickoff26.db` are generated artifacts - delete them anytime; they're recreated on the next run/test.
 
 ---
 
@@ -241,7 +241,7 @@ API-Football  ── fixtures?live=all ──►  live_poller.py
                                             ▼  ws_manager.broadcast(...)
                        match:{id} · matches:live · matches:alerts  ──►  all clients
 ```
-In `LIVE_DATA_MODE=demo`, `matchday_demo.py` produces the same DB writes and broadcasts for one simulated match — with **zero** API calls. The two paths never mix.
+In `LIVE_DATA_MODE=demo`, `matchday_demo.py` produces the same DB writes and broadcasts for one simulated match - with **zero** API calls. The two paths never mix.
 
 **Quota budgeting (api mode):** one call per poll for all live matches; poll only inside kickoff windows; adaptive interval (5 min while live, 90 s for ~5 min after a goal/red card); event detail fetched only on score change/bursts; polling halts when the rate-limit remaining header drops below the safety threshold. A typical 6-match day stays within the 100 req/day free tier.
 
@@ -289,7 +289,7 @@ Settings load once at startup, so **restart the backend after editing `.env`**.
 
 ## 11. Testing
 
-- **Backend** (`backend/tests/`): `pytest` against SQLite — unit tests for win-probability, simulator, itinerary, live poller, match calendar/events/lineups, R32 seeding, bracket standings, rooms, and sim jobs, plus API integration tests. `conftest.py` provides a test DB/session and sets `TESTING` so background loops don't start.
+- **Backend** (`backend/tests/`): `pytest` against SQLite - unit tests for win-probability, simulator, itinerary, live poller, match calendar/events/lineups, R32 seeding, bracket standings, rooms, and sim jobs, plus API integration tests. `conftest.py` provides a test DB/session and sets `TESTING` so background loops don't start.
 - **Frontend** (`frontend/lib/*.test.mjs`): Node test runner for calendar/navigation helpers (`npm run test:matchday`).
 
 ---

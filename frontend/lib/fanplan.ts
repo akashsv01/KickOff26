@@ -41,7 +41,7 @@ function normalizeTicketEstimate(raw: RawStop): FanPlanStop["ticket_estimate"] {
       high_usd: est.high_usd,
       label: est.label ?? "Estimated",
       display_range:
-        est.display_range ?? `est. $${est.low_usd.toLocaleString()}–$${est.high_usd.toLocaleString()}`,
+        est.display_range ?? formatUsdRange(est.low_usd, est.high_usd),
       is_estimate: est.is_estimate ?? true,
     };
   }
@@ -51,7 +51,7 @@ function normalizeTicketEstimate(raw: RawStop): FanPlanStop["ticket_estimate"] {
     low_usd: legacy,
     high_usd: legacy,
     label: "Estimated",
-    display_range: `est. $${legacy.toLocaleString()}`,
+    display_range: formatUsdRange(legacy, legacy),
     is_estimate: true,
   };
 }
@@ -72,7 +72,7 @@ function normalizeStop(raw: RawStop): FanPlanStop {
   };
 }
 
-/** Normalize API payload — handles legacy responses missing range totals. */
+/** Normalize API payload - handles legacy responses missing range totals. */
 export function normalizeItinerary(raw: Record<string, unknown>): Itinerary {
   const stops = Array.isArray(raw.stops)
     ? (raw.stops as RawStop[]).map(normalizeStop)
@@ -101,7 +101,7 @@ export function normalizeItinerary(raw: Record<string, unknown>): Itinerary {
     disclaimer:
       typeof raw.disclaimer === "string"
         ? raw.disclaimer
-        : "Ticket prices are estimates based on published reporting. FIFA uses dynamic pricing.",
+        : "Ticket prices are estimates based on published reporting. Official pricing is dynamic.",
     notes: Array.isArray(raw.notes) ? (raw.notes as string[]) : [],
   };
 }
@@ -109,7 +109,8 @@ export function normalizeItinerary(raw: Record<string, unknown>): Itinerary {
 export function formatUsdRange(low: number | undefined, high: number | undefined): string {
   const lo = typeof low === "number" && Number.isFinite(low) ? low : 0;
   const hi = typeof high === "number" && Number.isFinite(high) ? high : lo;
-  return `est. $${lo.toLocaleString()}–$${hi.toLocaleString()}`;
+  if (lo === hi) return `$${lo.toLocaleString()}`;
+  return `$${lo.toLocaleString()}-${hi.toLocaleString()}`;
 }
 
 export function stopTicketLow(stop: FanPlanStop): number {

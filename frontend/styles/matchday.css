@@ -1,6 +1,6 @@
-/* MatchDay Companion — broadcast-grade design system (tokens in theme.css) */
+/* MatchDay Companion - broadcast-grade design system (tokens in theme.css) */
 
-/* Spacing & radius — theme-independent */
+/* Spacing & radius - theme-independent */
 :root {
   --md-radius-sm: 0.5rem;
   --md-radius-md: 0.875rem;
@@ -32,7 +32,7 @@
   --md-duration-slow: 700ms;
 }
 
-/* Ambient page depth — the cinematic backdrop now lives globally on
+/* Ambient page depth - the cinematic backdrop now lives globally on
    .app-canvas so it is identical and seamless across every page. This shell
    stays as a positioning/stacking context only (no duplicate background). */
 .matchday-shell {
@@ -78,7 +78,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Glass cards — unified warm frosted baseline */
+/* Glass cards - unified warm frosted baseline */
 .md-glass {
   position: relative;
   border-radius: var(--md-radius-lg);
@@ -133,7 +133,7 @@
   transition-duration: var(--md-duration-fast);
 }
 
-/* Live hero — elevated gold glow (only for IN_PLAY focal card) */
+/* Live hero - elevated gold glow (only for IN_PLAY focal card) */
 .md-glass-live {
   border-color: var(--glass-live-border);
   background: var(--glass-live-bg);
@@ -156,7 +156,7 @@
   z-index: -1;
 }
 
-/* Live hero — focal card at top of match column */
+/* Live hero - focal card at top of match column */
 .md-glass-hero {
   border-color: var(--glass-live-hero-border);
   box-shadow:

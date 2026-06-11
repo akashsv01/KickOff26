@@ -247,7 +247,7 @@ async def save_bracket(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Upsert the user's manual bracket picks (full payload — group + knockout)."""
+    """Upsert the user's manual bracket picks (full payload - group + knockout)."""
     bracket = await _upsert_manual_bracket(db, user.id, data.name, data.picks)
     return BracketResponse.model_validate(bracket)
 
@@ -402,7 +402,7 @@ async def simulate(
     data: SimulateRequest,
     user: User | None = Depends(get_optional_user),
 ):
-    """Start a Live Monte Carlo job — returns immediately; progress over WebSocket."""
+    """Start a Live Monte Carlo job - returns immediately; progress over WebSocket."""
     try:
         job = await sim_job_manager.create_job(data.iterations, _sim_user_key(user), mode="live")
     except SimJobConflictError as exc:
@@ -423,7 +423,7 @@ async def simulate_quick(
     data: SimulateRequest,
     user: User | None = Depends(get_optional_user),
 ):
-    """Start a Quick Monte Carlo job — poll GET /simulate/jobs/{task_id} for results."""
+    """Start a Quick Monte Carlo job - poll GET /simulate/jobs/{task_id} for results."""
     try:
         job = await sim_job_manager.create_job(data.iterations, _sim_user_key(user), mode="quick")
     except SimJobConflictError as exc:
@@ -443,7 +443,7 @@ async def simulate_sync_legacy(
     data: SimulateRequest,
     user: User | None = Depends(get_optional_user),
 ):
-    """Legacy alias — starts a Quick job (non-blocking). Poll /simulate/jobs/{task_id}."""
+    """Legacy alias - starts a Quick job (non-blocking). Poll /simulate/jobs/{task_id}."""
     return await simulate_quick(data, user)
 
 

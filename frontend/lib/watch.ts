@@ -53,7 +53,7 @@ export const REACTION_EMOJIS = ["⚽", "🔥", "😱", "👏", "😢"] as const;
 /** Max chat messages kept in room state (matches API fetch limit). */
 export const WATCH_MESSAGE_CAP = 200;
 
-export const FIFA_LINKS = {
+export const OFFICIAL_TOURNAMENT_LINKS = {
   tournament: "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026",
   broadcasters:
     "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/fifa-world-cup-2026-broadcast-info",
@@ -152,7 +152,7 @@ export function pollTotals(options: Record<string, number>): number {
 
 export function matchResultPollPreset(homeCode: string, awayCode: string) {
   return {
-    question: `Who wins — ${homeCode} vs ${awayCode}?`,
+    question: `Who wins - ${homeCode} vs ${awayCode}?`,
     options: [homeCode, "Draw", awayCode],
   };
 }

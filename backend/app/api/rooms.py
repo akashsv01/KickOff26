@@ -75,7 +75,7 @@ async def create_room(
     match = await db.get(Match, data.match_id)
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    name = data.name or f"Watch Room — Match {data.match_id}"
+    name = data.name or f"Watch Room - Match {data.match_id}"
     room = Room(match_id=data.match_id, name=name, reactions={}, polls=[])
     db.add(room)
     await db.flush()
@@ -109,7 +109,7 @@ async def get_messages(room_id: int, db: AsyncSession = Depends(get_db)):
 async def post_message(
     room_id: int,
     data: MessageCreate,
-    user: User | None = Depends(get_optional_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     room = await db.get(Room, room_id)
@@ -118,11 +118,10 @@ async def post_message(
     content = data.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
-    username = user.username if user else "guest"
     msg = Message(
         room_id=room_id,
-        user_id=user.id if user else None,
-        username=username,
+        user_id=user.id,
+        username=user.username,
         content=content,
     )
     db.add(msg)

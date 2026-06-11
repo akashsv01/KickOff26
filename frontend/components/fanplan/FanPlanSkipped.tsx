@@ -14,12 +14,12 @@ export function FanPlanSkipped({ notes }: Props) {
           Not included
         </p>
         <p className="fanplan-skipped-sub">
-          Matches skipped by budget, schedule, or city limits — estimates only.
+          Matches skipped by budget, schedule, or city limits - estimates only.
         </p>
       </div>
       <ul className="fanplan-skipped-list">
         {notes.map((note, i) => {
-          const dash = note.indexOf(" — ");
+          const dash = note.indexOf(" - ");
           const headline = dash >= 0 ? note.slice(0, dash) : note;
           const reason = dash >= 0 ? note.slice(dash + 3) : "";
           return (

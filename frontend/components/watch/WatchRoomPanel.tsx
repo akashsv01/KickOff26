@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { Match } from "@/lib/matchday";
 import { matchResultPollPreset, type ReactionBurst, type WatchMessage, type WatchPoll, type WatchRoom } from "@/lib/watch";
@@ -17,6 +18,7 @@ type Props = {
   connected: boolean;
   currentUsername: string;
   userId: number | null | undefined;
+  isLoggedIn: boolean;
   onSendMessage: (text: string) => Promise<void>;
   onCreatePoll: (question: string, options: string[]) => Promise<void>;
   onVote: (pollId: string, option: string) => Promise<void>;
@@ -31,6 +33,7 @@ export function WatchRoomPanel({
   connected,
   currentUsername,
   userId,
+  isLoggedIn,
   onSendMessage,
   onCreatePoll,
   onVote,
@@ -101,13 +104,13 @@ export function WatchRoomPanel({
         <FloatingReactions bursts={bursts} />
 
         <div className="watch-room-body-inner md-glass-content">
-          {/* Priority 3 — Reactions (always visible, compact) */}
+          {/* Priority 3 - Reactions (always visible, compact) */}
           <section className="watch-room-section watch-room-section-reactions" aria-label="Live reactions">
             <span className="watch-room-section-label">Live Reactions</span>
             <WatchReactionBar reactions={room.reactions ?? {}} onReact={onReact} />
           </section>
 
-          {/* Chat / Polls tabs — chat is the default, dominant view */}
+          {/* Chat / Polls tabs - chat is the default, dominant view */}
           <div className="watch-tabs" role="tablist" aria-label="Chat and polls">
             <button
               type="button"
@@ -144,28 +147,37 @@ export function WatchRoomPanel({
             >
               <div className="watch-chat-shell">
                 <WatchChat messages={messages} currentUsername={currentUsername} />
-                <form onSubmit={handleSend} className="watch-chat-input-bar">
-                  <label htmlFor="watch-chat-input" className="sr-only">
-                    Message the room
-                  </label>
-                  <input
-                    id="watch-chat-input"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    className="watch-input watch-input-chat"
-                    placeholder="Message the room…"
-                    maxLength={2000}
-                    disabled={sending}
-                    autoComplete="off"
-                  />
-                  <button
-                    type="submit"
-                    className="watch-pill-btn watch-pill-btn-primary watch-send-btn"
-                    disabled={sending || !input.trim()}
-                  >
-                    Send
-                  </button>
-                </form>
+                {isLoggedIn ? (
+                  <form onSubmit={handleSend} className="watch-chat-input-bar">
+                    <label htmlFor="watch-chat-input" className="sr-only">
+                      Message the room
+                    </label>
+                    <input
+                      id="watch-chat-input"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      className="watch-input watch-input-chat"
+                      placeholder="Message the room…"
+                      maxLength={2000}
+                      disabled={sending}
+                      autoComplete="off"
+                    />
+                    <button
+                      type="submit"
+                      className="watch-pill-btn watch-pill-btn-primary watch-send-btn"
+                      disabled={sending || !input.trim()}
+                    >
+                      Send
+                    </button>
+                  </form>
+                ) : (
+                  <div className="watch-login-gate" role="note">
+                    <span className="watch-login-gate-text">Log in to chat with the room.</span>
+                    <Link href="/auth" className="watch-pill-btn watch-pill-btn-primary watch-send-btn">
+                      Log in
+                    </Link>
+                  </div>
+                )}
               </div>
             </section>
           ) : (
@@ -185,7 +197,14 @@ export function WatchRoomPanel({
               </div>
 
               <div className="watch-poll-create-pinned">
-                {!pollOpen ? (
+                {!isLoggedIn ? (
+                  <div className="watch-login-gate" role="note">
+                    <span className="watch-login-gate-text">Log in to create polls.</span>
+                    <Link href="/auth" className="watch-pill-btn watch-pill-btn-primary">
+                      Log in
+                    </Link>
+                  </div>
+                ) : !pollOpen ? (
                   <div className="watch-poll-create-actions">
                     <button type="button" className="watch-pill-btn watch-pill-btn-secondary" onClick={applyPreset}>
                       Match result preset

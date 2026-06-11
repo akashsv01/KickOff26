@@ -9,12 +9,16 @@ import {
   useState,
 } from "react";
 import { api, clearToken, getToken, setToken } from "@/lib/api";
+import type { RegisterProfile } from "@/lib/signupProfile";
 
 export type AuthUser = {
   id: number;
   email: string;
   username: string;
   followed_team_ids: number[];
+  favorite_team_id: number | null;
+  country_region: string | null;
+  preferred_language: string | null;
 };
 
 type AuthContextValue = {
@@ -22,7 +26,12 @@ type AuthContextValue = {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, username: string, password: string) => Promise<void>;
+  register: (
+    email: string,
+    username: string,
+    password: string,
+    profile: RegisterProfile
+  ) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 };
@@ -66,15 +75,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   }, []);
 
-  const register = useCallback(async (email: string, username: string, password: string) => {
-    const data = await api<{ access_token: string; user: AuthUser }>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, username, password }),
-    });
-    setToken(data.access_token);
-    setTokenState(data.access_token);
-    setUser(data.user);
-  }, []);
+  const register = useCallback(
+    async (
+      email: string,
+      username: string,
+      password: string,
+      profile: RegisterProfile
+    ) => {
+      const body: Record<string, unknown> = {
+        email,
+        username,
+        password,
+        favorite_team_id: profile.favorite_team_id,
+      };
+      if (profile.country_region) body.country_region = profile.country_region;
+      if (profile.preferred_language) body.preferred_language = profile.preferred_language;
+      if (profile.followed_team_ids?.length) {
+        body.followed_team_ids = profile.followed_team_ids;
+      }
+      const data = await api<{ access_token: string; user: AuthUser }>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setToken(data.access_token);
+      setTokenState(data.access_token);
+      setUser(data.user);
+    },
+    []
+  );
 
   const logout = useCallback(() => {
     clearToken();

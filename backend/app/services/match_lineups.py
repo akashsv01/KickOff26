@@ -1,4 +1,4 @@
-"""Durable match lineups — fetch-once at ~10 min pre-kickoff, store in Postgres."""
+"""Durable match lineups - fetch-once at ~10 min pre-kickoff, store in Postgres."""
 
 from __future__ import annotations
 
@@ -125,12 +125,14 @@ async def store_demo_lineup_for_match(db: AsyncSession, match: Match) -> MatchLi
 
 def lineup_to_detail_fields(row: MatchLineup | None) -> dict:
     """Shape consumed by match detail API and frontend."""
-    if not lineup_has_starters(row):
-        return {
-            "home_lineup": [],
-            "away_lineup": [],
-            "lineups": None,
-        }
+    empty = {
+        "home_lineup": [],
+        "away_lineup": [],
+        "lineups": None,
+    }
+    # Only expose lineups from a verified API source — never demo/placeholder data.
+    if not row or row.source != "api" or not lineup_has_starters(row):
+        return empty
     assert row is not None
     return {
         "home_lineup": row.home_xi,
@@ -152,21 +154,17 @@ def lineup_to_detail_fields(row: MatchLineup | None) -> dict:
     }
 
 
+async def clear_stored_lineups(db: AsyncSession) -> int:
+    """Remove cached lineups (demo placeholders or stale rows)."""
+    rows = (await db.execute(select(MatchLineup))).scalars().all()
+    for row in rows:
+        await db.delete(row)
+    return len(rows)
+
+
 async def ensure_demo_lineups(db: AsyncSession) -> int:
-    """Seed realistic demo lineups for all official fixtures (demo mode parity)."""
-    result = await db.execute(
-        select(Match)
-        .options(selectinload(Match.home_team), selectinload(Match.away_team))
-        .where(Match.external_id.like(f"{OFFICIAL_EXTERNAL_PREFIX}%"))
-    )
-    seeded = 0
-    for match in result.scalars().all():
-        row = await get_lineup_row(db, match.id)
-        if row and row.fetch_status == "ready" and row.home_xi:
-            continue
-        await store_demo_lineup_for_match(db, match)
-        seeded += 1
-    return seeded
+    """Deprecated: demo lineups are no longer seeded or shown."""
+    return await clear_stored_lineups(db)
 
 
 def in_lineup_fetch_window(match: Match, now: datetime) -> bool:

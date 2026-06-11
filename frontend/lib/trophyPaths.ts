@@ -1,10 +1,10 @@
 /**
- * KickOff26 — original championship trophy geometry.
+ * KickOff26 - original championship trophy geometry.
  *
  * A sculpted modern cup with graceful curved side handles, a stepped premium
  * base, and a small star above (subtle football/championship influence).
  * Deliberately NOT a replica of any existing trophy: no globe, no figures,
- * no copyrighted silhouette. Shapes are simple so they stay crisp at 16–32px.
+ * no copyrighted silhouette. Shapes are simple so they stay crisp at 16-32px.
  *
  * All paths are authored in a 0 0 64 64 viewBox and shared by the navbar
  * component (theme-aware) and the favicon/app-icon raster generators.

@@ -44,7 +44,7 @@ export function WatchChat({ messages, currentUsername }: Props) {
       {groups.length === 0 ? (
         <div className="watch-chat-empty">
           <p className="watch-chat-empty-title">The room is quiet</p>
-          <p className="watch-chat-empty-sub">Break the ice — reactions and messages sync live for everyone here.</p>
+          <p className="watch-chat-empty-sub">Break the ice - reactions and messages sync live for everyone here.</p>
         </div>
       ) : (
         <div className="watch-chat-messages">

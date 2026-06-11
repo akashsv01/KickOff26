@@ -34,7 +34,7 @@ export default function MatchDayPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const statusByMatchId = useRef<Map<number, string>>(new Map());
-  const { connected, subscribe } = useWebSocket(token);
+  const { connected, subscribe, reconnectCount } = useWebSocket(token);
 
   const liveCount = useMemo(() => matches.filter((m) => m.status === "live").length, [matches]);
   const days = useMemo(() => dayCountsFromMatches(matches), [matches]);
@@ -85,7 +85,7 @@ export default function MatchDayPage() {
         addStatusNotification(
           "match_end",
           m.id,
-          `FULL TIME: ${home} ${m.home_score ?? 0}–${m.away_score ?? 0} ${away}`
+          `FULL TIME: ${home} ${m.home_score ?? 0}-${m.away_score ?? 0} ${away}`
         );
         pushToast(`FULL TIME: ${home} vs ${away}`, "momentum");
       }
@@ -123,6 +123,21 @@ export default function MatchDayPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load matches"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!connected) return;
+    api<Match[]>("/matchday/matches")
+      .then((m) => {
+        setMatches(m);
+        for (const match of m) {
+          statusByMatchId.current.set(match.id, match.status);
+        }
+        setLastUpdated(new Date());
+      })
+      .catch(() => {
+        /* keep last-known state on resync failure */
+      });
+  }, [connected, reconnectCount]);
 
   useEffect(() => {
     if (!connected) return;
@@ -177,7 +192,7 @@ export default function MatchDayPage() {
     return (
       <div className="matchday-shell">
         <div className="md-glass border-red-500/30 p-6 text-red-300">
-          <h1 className="text-xl font-bold">MatchDay unavailable</h1>
+          <h1 className="text-xl font-bold">Live Matches unavailable</h1>
           <p className="mt-2 text-sm">{error}</p>
           <button className="md-btn md-btn-secondary mt-4" onClick={() => window.location.reload()}>
             Retry
@@ -213,8 +228,8 @@ export default function MatchDayPage() {
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h1 className="md-day-header-title">
-                  MatchDay
-                  {selectedDay ? ` — ${formatDayLabel(selectedDay)}` : ""}
+                  Live Matches
+                  {selectedDay ? ` - ${formatDayLabel(selectedDay)}` : ""}
                 </h1>
                 <p className="md-day-header-date tabular-nums">
                   {matches.length} fixtures

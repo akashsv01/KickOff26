@@ -50,7 +50,7 @@ export function WatchRoomBrowser({ matches, summaries, activeRoomId, onJoin }: P
       <div className="md-glass-content watch-browser-inner">
         <div className="watch-browser-head">
           <h2 className="md-section-title">Find a room</h2>
-          <p className="watch-browser-sub">Join fans watching live — rooms sorted by activity.</p>
+          <p className="watch-browser-sub">Join fans watching live - rooms sorted by activity.</p>
         </div>
 
         {liveAll.length > 0 ? (

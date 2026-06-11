@@ -1,6 +1,7 @@
 "use client";
 
 import { TeamFlag } from "@/components/TeamFlag";
+import { ExportTeamFlag } from "@/components/ExportTeamFlag";
 import {
   MATCH_UNIT_PX,
   ROUND_HEIGHT_UNITS,
@@ -24,6 +25,8 @@ function MatchupBox({
   winnerCode,
   onPick,
   isFinal,
+  readOnly,
+  exportMode,
 }: {
   slotId: string;
   sideA: MatchupSide;
@@ -31,13 +34,22 @@ function MatchupBox({
   winnerCode?: string;
   onPick: (slotId: string, code: string) => void;
   isFinal?: boolean;
+  readOnly?: boolean;
+  exportMode?: boolean;
 }) {
-  const canPick = sideA.kind === "team" && sideB.kind === "team";
+  const canPick = !readOnly && sideA.kind === "team" && sideB.kind === "team";
 
   function TeamLine({ side }: { side: MatchupSide }) {
     if (side.kind === "placeholder") {
       return (
-        <div className="flex w-full items-center gap-2 border-b border-app-faint/20 px-3 py-2 text-left last:border-0">
+        <div
+          className="flex w-full items-center gap-2 border-b border-app-faint/20 px-3 py-2 text-left last:border-0"
+          style={
+            exportMode
+              ? { borderColor: "rgba(255,255,255,0.12)", padding: "8px 12px" }
+              : undefined
+          }
+        >
           <span className="h-3 w-4 shrink-0 rounded-sm bg-app-faint/15" aria-hidden />
           <span className="truncate text-xs font-medium italic text-app-faint">{side.label}</span>
         </div>
@@ -46,6 +58,49 @@ function MatchupBox({
 
     const selected = winnerCode === side.code;
     const isChampion = isFinal && selected;
+
+    const lineStyle = exportMode
+      ? {
+          borderColor: "rgba(255,255,255,0.12)",
+          padding: "8px 12px",
+          background: selected
+            ? isChampion
+              ? "rgba(212, 175, 55, 0.28)"
+              : "rgba(212, 175, 55, 0.15)"
+            : "transparent",
+        }
+      : undefined;
+
+    const content = (
+      <>
+        <span className="inline-flex min-w-0 items-center gap-2">
+          {exportMode ? (
+            <ExportTeamFlag code={side.code} size="xs" />
+          ) : (
+            <TeamFlag code={side.code} size="xs" className="shadow-none" />
+          )}
+          <span className="font-bold tracking-wide text-app">{side.code}</span>
+        </span>
+        {selected ? (
+          <span className="shrink-0 text-[10px] font-bold uppercase text-champagne">
+            {isChampion ? "Champion" : "Adv"}
+          </span>
+        ) : null}
+      </>
+    );
+
+    if (readOnly) {
+      return (
+        <div
+          className={`flex w-full items-center justify-between gap-2 border-b border-app-faint/20 text-left last:border-0 ${
+            selected ? "text-champagne" : ""
+          }`}
+          style={lineStyle}
+        >
+          {content}
+        </div>
+      );
+    }
 
     return (
       <button
@@ -62,15 +117,7 @@ function MatchupBox({
             : ""
         }`}
       >
-        <span className="inline-flex min-w-0 items-center gap-2">
-          <TeamFlag code={side.code} size="xs" className="shadow-none" />
-          <span className="font-bold tracking-wide text-app">{side.code}</span>
-        </span>
-        {selected ? (
-          <span className="shrink-0 text-[10px] font-bold uppercase text-champagne">
-            {isChampion ? "Champion" : "Adv"}
-          </span>
-        ) : null}
+        {content}
       </button>
     );
   }
@@ -80,6 +127,16 @@ function MatchupBox({
       className={`md-glass w-[148px] shrink-0 overflow-hidden border shadow-[var(--glass-shadow)] ${
         isFinal && winnerCode ? "border-champagne/60" : "border-app-faint/35"
       }`}
+      style={
+        exportMode
+          ? {
+              background: "#14121c",
+              border: `1px solid ${isFinal && winnerCode ? "rgba(212,175,55,0.55)" : "rgba(255,255,255,0.15)"}`,
+              boxShadow: "none",
+              backdropFilter: "none",
+            }
+          : undefined
+      }
     >
       <TeamLine side={sideA} />
       <TeamLine side={sideB} />
@@ -91,10 +148,12 @@ function ConnectorSvg({
   fromRound,
   toRound,
   fromCount,
+  exportMode,
 }: {
   fromRound: RoundId;
   toRound: RoundId;
   fromCount: number;
+  exportMode?: boolean;
 }) {
   const toCount = fromCount / 2;
   const fromUnits = ROUND_HEIGHT_UNITS[fromRound];
@@ -123,7 +182,7 @@ function ConnectorSvg({
           key={i}
           d={d}
           fill="none"
-          stroke="var(--bracket-line)"
+          stroke={exportMode ? "#6b5c2e" : "var(--bracket-line)"}
           strokeWidth={2}
           strokeLinejoin="round"
         />
@@ -137,11 +196,15 @@ export function KnockoutBracket({
   picks,
   slotTeams,
   onPick,
+  readOnly = false,
+  exportMode = false,
 }: {
   rounds: KnockoutRound[];
   picks: Record<string, string>;
   slotTeams: Record<string, string>;
   onPick: (slotId: string, code: string) => void;
+  readOnly?: boolean;
+  exportMode?: boolean;
 }) {
   const orderedRounds = ROUND_ORDER.map((id) => rounds.find((r) => r.id === id)).filter(
     Boolean
@@ -150,8 +213,14 @@ export function KnockoutBracket({
   const totalHeight = 16 * MATCH_UNIT_PX;
 
   return (
-    <div className="bracket-tree -mx-2 overflow-x-auto pb-4">
-      <div className="flex min-w-max items-start px-2" style={{ minHeight: totalHeight }}>
+    <div
+      className="bracket-tree -mx-2 pb-4"
+      style={exportMode ? { overflow: "visible", margin: 0 } : undefined}
+    >
+      <div
+        className={`flex items-start px-2 ${exportMode ? "" : "min-w-max overflow-x-auto"}`}
+        style={{ minHeight: totalHeight, ...(exportMode ? { minWidth: "max-content" } : {}) }}
+      >
         {orderedRounds.map((round, roundIdx) => {
           const roundId = round.id as RoundId;
           const units = ROUND_HEIGHT_UNITS[roundId];
@@ -163,11 +232,15 @@ export function KnockoutBracket({
                   fromRound={orderedRounds[roundIdx - 1].id as RoundId}
                   toRound={roundId}
                   fromCount={orderedRounds[roundIdx - 1].slots.length}
+                  exportMode={exportMode}
                 />
               ) : null}
 
               <div className="flex shrink-0 flex-col" style={{ minHeight: totalHeight }}>
-                <h3 className="mb-3 text-center text-xs font-bold uppercase tracking-widest text-champagne">
+                <h3
+                  className="mb-3 text-center text-xs font-bold uppercase tracking-widest text-champagne"
+                  style={exportMode ? { color: "#d4af37", marginBottom: 12 } : undefined}
+                >
                   {round.label}
                 </h3>
                 <div className="relative flex flex-1 flex-col" style={{ minHeight: totalHeight - 28 }}>
@@ -191,6 +264,8 @@ export function KnockoutBracket({
                           winnerCode={picks[slot.slot]}
                           onPick={onPick}
                           isFinal={roundId === "final"}
+                          readOnly={readOnly}
+                          exportMode={exportMode}
                         />
                       </div>
                     );

@@ -1,5 +1,5 @@
 /**
- * WatchTogether — premium broadcast watch-party design system
+ * WatchTogether - premium broadcast watch-party design system
  * Uses app theme tokens; CSS-only motion; no extra dependencies.
  */
 
@@ -11,7 +11,7 @@
   --watch-space-xl: 2rem;
   --watch-radius: var(--md-radius-lg, 1.125rem);
 
-  /* Canonical spacing scale — 8 / 16 / 24 / 32 */
+  /* Canonical spacing scale - 8 / 16 / 24 / 32 */
   --watch-xs: 0.5rem;
   --watch-sm: 1rem;
   --watch-md: 1.5rem;
@@ -31,7 +31,7 @@
   border: 0;
 }
 
-/* —— Page shell —— */
+/* -- Page shell -- */
 .watch-shell {
   padding-bottom: var(--watch-space-xl);
 }
@@ -59,7 +59,7 @@
   max-width: 40rem;
 }
 
-/* —— Layout —— */
+/* -- Layout -- */
 .watch-layout {
   display: grid;
   grid-template-columns: 1fr;
@@ -138,7 +138,7 @@
   }
 }
 
-/* —— Room browser —— */
+/* -- Room browser -- */
 .watch-browser {
   position: sticky;
   top: var(--watch-space-md);
@@ -415,7 +415,7 @@
   width: 100%;
 }
 
-/* —— Premium pill buttons —— */
+/* -- Premium pill buttons -- */
 .watch-pill-btn {
   display: inline-flex;
   align-items: center;
@@ -492,7 +492,7 @@
   color: #9a9488;
 }
 
-/* —— Match hero —— */
+/* -- Match hero -- */
 .watch-room-panel {
   display: flex;
   flex-direction: column;
@@ -854,7 +854,7 @@
   color: #6b5010;
 }
 
-/* —— Unified room body —— */
+/* -- Unified room body -- */
 .watch-room-body {
   position: relative;
   flex: 1;
@@ -900,7 +900,7 @@
   border-top: none;
 }
 
-/* Reactions — compact, always visible (priority 3) */
+/* Reactions - compact, always visible (priority 3) */
 .watch-room-section-reactions {
   flex-shrink: 0;
   padding-top: var(--watch-sm);
@@ -911,7 +911,7 @@
   margin-bottom: var(--watch-xs);
 }
 
-/* Chat tab — dominant, fills remaining height, single scroll region */
+/* Chat tab - dominant, fills remaining height, single scroll region */
 .watch-room-section-chat {
   flex: 1;
   display: flex;
@@ -922,7 +922,7 @@
   padding-bottom: var(--watch-sm);
 }
 
-/* Polls tab — capped list scrolls internally, create pinned at bottom */
+/* Polls tab - capped list scrolls internally, create pinned at bottom */
 .watch-room-section-pollstab {
   flex: 1;
   display: flex;
@@ -955,7 +955,7 @@
   gap: var(--watch-xs);
 }
 
-/* —— Chat / Polls tab bar —— */
+/* -- Chat / Polls tab bar -- */
 .watch-tabs {
   display: flex;
   gap: var(--watch-xs);
@@ -1490,6 +1490,36 @@
 .watch-send-btn {
   min-width: 6rem;
   padding-inline: 1.5rem;
+}
+
+/* Login gate (logged-out chat / poll-create) */
+.watch-login-gate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--watch-sm);
+  flex-shrink: 0;
+  margin-top: var(--watch-sm);
+  padding: var(--watch-sm);
+  border: 1px dashed color-mix(in srgb, var(--app-gold) 45%, var(--app-border));
+  border-radius: var(--md-radius-md, 0.75rem);
+  background: color-mix(in srgb, var(--app-gold) 8%, transparent);
+}
+
+.watch-chat-input-bar + .watch-login-gate,
+.watch-chat-shell .watch-login-gate {
+  margin-top: var(--watch-sm);
+}
+
+.watch-login-gate-text {
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--app-text-secondary);
+}
+
+[data-theme="light"] .watch-login-gate {
+  background: #fff8e8;
 }
 
 /* Poll create (collapsible) */
