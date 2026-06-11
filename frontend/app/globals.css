@@ -5,6 +5,7 @@
 @import "../styles/watch.css";
 @import "../styles/home.css";
 @import "../styles/pages.css";
+@import "../styles/assistant.css";
 
 @tailwind base;
 @tailwind components;

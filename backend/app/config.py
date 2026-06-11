@@ -1,4 +1,4 @@
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -54,6 +54,22 @@ class Settings(BaseSettings):
     cache_ttl_standings: int = 600
 
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # Groq AI tournament assistant (https://console.groq.com)
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_max_tokens: int = 1024
+
+    @field_validator("groq_api_key", mode="before")
+    @classmethod
+    def strip_groq_key(cls, value: object) -> str:
+        if value is None:
+            return ""
+        return str(value).strip()
+
+    @property
+    def has_groq_key(self) -> bool:
+        return bool(self.groq_api_key.strip())
 
     @property
     def is_mock(self) -> bool:

@@ -6,7 +6,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, bracket, fanplan, matchday, rooms, teams
+from app.api import auth, bracket, chat, fanplan, matchday, rooms, teams
 from app.config import settings
 from app.db import async_session, init_db
 from app.services.data_ingestion import DataIngestionService
@@ -94,6 +94,7 @@ app.include_router(bracket.router, prefix="/api")
 app.include_router(matchday.router, prefix="/api")
 app.include_router(rooms.router, prefix="/api")
 app.include_router(fanplan.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
 app.include_router(ws_router)
 
 
@@ -112,5 +113,6 @@ async def health():
         payload["worldcup_rate"] = WorldCupApiClient.rate_stats()
         payload["worldcup_poll_live_seconds"] = settings.worldcup_poll_live_seconds
     payload["zafronix_api_key_set"] = settings.has_zafronix_key
+    payload["groq_assistant_configured"] = settings.has_groq_key
     return payload
 
