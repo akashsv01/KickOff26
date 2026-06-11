@@ -24,6 +24,7 @@ from app.services.room_live import (
     serialize_poll,
     voter_key,
 )
+from app.services.room_reset import clear_room_user_content
 from app.websocket.gateway import ws_manager
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
@@ -64,6 +65,14 @@ async def room_summary(db: AsyncSession = Depends(get_db)):
             )
         )
     return summary
+
+
+@router.post("/reset-content")
+async def reset_room_content(db: AsyncSession = Depends(get_db)):
+    """Clear all room chat, reactions, and polls. Dev/admin maintenance — re-runnable."""
+    result = await clear_room_user_content(db)
+    await db.commit()
+    return result
 
 
 @router.post("", response_model=RoomResponse)
