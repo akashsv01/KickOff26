@@ -10,9 +10,9 @@ For setup and day-to-day commands, see [README.md](./README.md).
 
 1. **One source of truth.** All clients read state from the database; nothing in the browser calls a football API directly.
 2. **Fan-out, don't fan-in.** A single backend poller fetches live data; the WebSocket gateway broadcasts it to every connected client, so external API cost is independent of user count.
-3. **Engine-agnostic persistence.** The same async SQLAlchemy code runs on SQLite (frictionless dev/tests) and PostgreSQL (production), selected purely by `DATABASE_URL`.
+3. **Engine-agnostic persistence.** The same async SQLAlchemy code runs on PostgreSQL (Neon in production, local Postgres in dev) and SQLite (the zero-config fallback the test suite uses), selected purely by `DATABASE_URL`.
 4. **Thin routers, fat services.** HTTP routers validate and delegate; all domain logic lives in `app/services/`.
-5. **Free-tier friendly.** Static schedule data is bundled (openfootball); the paid live feed (API-Football) is optional and quota-budgeted.
+5. **Free-tier friendly.** The schedule is bundled (openfootball) and squads are bundled as static JSON; the live feed (rezarahiminia World Cup 2026 API) is optional and rate-budgeted. The win-probability model is self-built (Poisson/Elo) - no paid odds provider.
 
 ---
 
@@ -43,13 +43,14 @@ For setup and day-to-day commands, see [README.md](./README.md).
                                              │  async SQLAlchemy (asyncpg / aiosqlite)
                                              ▼
                 ┌───────────────────────────────────────────────────────┐
-                │   PostgreSQL  (prod / recommended)                      │
-                │   SQLite kickoff26.db  (zero-config dev + tests)        │
+                │   PostgreSQL  (Neon in production, local in dev)        │
+                │   SQLite kickoff26.db  (zero-config fallback + tests)   │
                 └───────────────────────────────────────────────────────┘
 
    External feeds:
-     openfootball/worldcup.json  →  bundled in backend/data (no key)   → seeds schedule
-     API-Football (RapidAPI)     →  live_poller only (optional key)     → live scores/events
+     openfootball/worldcup.json   →  bundled in backend/data (no key)  → seeds schedule
+     rezarahiminia WC 2026 API    →  worldcup_poller (optional token)   → live scores/events
+     Zafronix squads              →  fetched once, bundled as JSON      → team rosters/coaches
 ```
 
 ---
@@ -63,7 +64,7 @@ For setup and day-to-day commands, see [README.md](./README.md).
 4. The router serializes via a response schema and returns JSON.
 
 ### Real-time update (e.g. a goal)
-1. `live_poller` (api mode) or `matchday_demo` (demo mode) detects a score/event change and writes it to the `matches` / `match_events` tables.
+1. `worldcup_poller` (api mode) or `matchday_demo` (demo mode) detects a score/event change and writes it to the `matches` / `match_events` tables.
 2. The same loop computes alerts/probabilities and calls `ws_manager.broadcast("matches:alerts", …)`, `match:{id}`, `matches:live`.
 3. Every connection subscribed to those channels receives the JSON frame instantly - no client polling.
 
@@ -135,9 +136,10 @@ For setup and day-to-day commands, see [README.md](./README.md).
 **Ingestion & external APIs**
 | Module | Purpose |
 |--------|---------|
-| `data_ingestion.py` | Orchestrates seeding/sync: API-Football (primary) with football-data.org (fallback); called at startup and by `init_db_data.py`. |
+| `data_ingestion.py` | Orchestrates startup seeding/sync from the bundled openfootball schedule; called at startup and by the setup scripts. |
+| `roster_seed.py` | Seeds team squads + coaches from the bundled `data/team_rosters_2026.json` (Zafronix data fetched once and bundled; no live polling by default). |
 | `data_sync.py` | Sync teams/fixtures from published JSON plus optional live API scores. |
-| `api_football.py` | API-Football (RapidAPI) client with **daily quota tracking** and a DB-backed cache. |
+| `api_football.py` / `matchday_live.py` | **Legacy** API-Football (RapidAPI) client + live-snapshot applier with daily quota tracking. Superseded by the rezarahiminia poller; kept for reference. |
 
 **MatchDay & live data**
 | Module | Purpose |
@@ -147,15 +149,15 @@ For setup and day-to-day commands, see [README.md](./README.md).
 | `match_events.py` | Persist/load per-match event timelines (source of truth for match detail). |
 | `match_lineups.py` | Durable per-match lineups (fetch-once ~10 min pre-kickoff). |
 | `matchday_alerts.py` | Canonical alert/event types (goal, card, kickoff, full-time, momentum). |
-| `matchday_live.py` | Apply API-Football live snapshots to the DB and fan out WebSocket updates. |
 | `matchday_demo.py` | The **demo** live loop - simulated scores/events, zero API calls. |
-| `worldcup_poller.py` | The **api-mode** poller: rezarahiminia API → DB → WebSocket. |
+| `worldcup_poller.py` | The **api-mode** poller (live source): rezarahiminia API → DB → WebSocket. |
+| `matchday_live.py` | **Legacy** - applies API-Football live snapshots to the DB. Superseded by `worldcup_poller.py`. |
 | `live_poller.py` | Shared polling-window helpers (`compute_polling_window`). |
 
 **Win probability & simulation**
 | Module | Purpose |
 |--------|---------|
-| `app/models/win_probability.py` | The Poisson/Elo win-probability engine (home/draw/away). |
+| `app/models/win_probability.py` | The self-built Poisson/Elo win-probability engine (home/draw/away) - no external odds provider. |
 | `match_resolver.py` | Resolve a single match outcome using the win-probability engine. |
 | `simulator.py` | Monte Carlo tournament simulator (group stage → knockouts → champion odds). |
 | `sim_job_manager.py` | Manages background Monte Carlo jobs: a `ProcessPoolExecutor`, progress streaming over `sim:{task_id}`, and guardrails. |
@@ -183,6 +185,7 @@ All tables are defined in [`app/models/__init__.py`](./backend/app/models/__init
 | `teams` | 48 nations | `code`, `group_letter`, `elo_rating`, `flag_url`, `external_id` |
 | `matches` | Fixtures + live state | `home/away_team_id`, `home/away_score`, `minute`, `status` (enum), `stage`, `kickoff_at`, `local_date`, `kickoff_timezone`, venue/city/geo, `events` (JSON), `win_prob_home/draw/away`, `api_fixture_id` |
 | `match_lineups` | Fetch-once XI/bench | `home/away_formation`, `home/away_coach`, `home/away_xi/bench` (JSON), `fetch_status`, `retry_after` |
+| `team_rosters` | Bundled squads + coaches | `team_id` (PK), `zafronix_slug`, `players` (JSON), `coach`, `fetch_status`, `fetched_at`, `retry_after` |
 | `match_events` | Durable timeline | `event_type`, `minute`, `team_side`, `player_name`, `detail` + a uniqueness constraint to dedupe |
 | `brackets` | Saved predictions | `mode` (`manual`/`monte_carlo`), `picks` (JSON), `champion_team_id`, `accuracy_score` |
 | `rooms` | Watch parties | `match_id`, `active_poll` (JSON), `polls` (JSON), `reactions` (JSON) |
@@ -205,8 +208,8 @@ KickOff26 deliberately supports two engines through one codebase. The choice is 
 ### PostgreSQL
 - **What it is:** the primary, production-grade datastore via the `asyncpg` driver.
 - **Where it's used:**
-  - **Local development** - `.env` ships with `DATABASE_URL=postgresql+asyncpg://postgres:admin123@localhost:5432/kickoff26`, created by `scripts/setup-postgres.ps1`.
-  - **Containers / production** - `docker-compose.yml` runs a `postgres:16-alpine` service and injects an asyncpg `DATABASE_URL` into the backend.
+  - **Local development** - point `DATABASE_URL` at a local Postgres (e.g. `postgresql+asyncpg://postgres:password@localhost:5432/kickoff26`, created by `scripts/setup-postgres.ps1`), or use the `postgres:16-alpine` service in `docker-compose.yml`.
+  - **Production** - [Neon](https://neon.tech) Postgres. The backend takes the Neon pooled connection string verbatim; `normalize_database_url` rewrites `postgres://` to `postgresql+asyncpg://` and `build_connect_args` enables TLS automatically (`sslmode=require` or any `*.neon.tech` host).
 - **Why:** real concurrency, durability, and `JSONB` columns (faster, indexable) - and parity with the deployed environment.
 
 ### How one codebase targets both
@@ -231,19 +234,25 @@ DataIngestionService.sync_all()    (app startup, or scripts/init_db_data.py)
 teams + matches tables  (48 teams, full 104-match schedule, venues, kickoff times)
 ```
 
-### Live updates (optional key, `LIVE_DATA_MODE=api`)
+### Live updates (optional token, `LIVE_DATA_MODE=api`)
 ```
-API-Football  ── fixtures?live=all ──►  live_poller.py
-        │                                   │ writes scores/events, computes win prob + alerts
-        ▼                                   ▼
-   api_cache (quota-tracked)          matches / match_events
-                                            │
-                                            ▼  ws_manager.broadcast(...)
+rezarahiminia WC 2026 API  ── GET /get/games ──►  worldcup_poller.py
+ (worldcup26.ir)                                      │ writes scores/events, computes win prob + alerts
+        │                                             ▼
+        ▼                                       matches / match_events
+   single shared poller                               │
+                                                       ▼  ws_manager.broadcast(...)
                        match:{id} · matches:live · matches:alerts  ──►  all clients
 ```
 In `LIVE_DATA_MODE=demo`, `matchday_demo.py` produces the same DB writes and broadcasts for one simulated match - with **zero** API calls. The two paths never mix.
 
-**Quota budgeting (api mode):** one call per poll for all live matches; poll only inside kickoff windows; adaptive interval (5 min while live, 90 s for ~5 min after a goal/red card); event detail fetched only on score change/bursts; polling halts when the rate-limit remaining header drops below the safety threshold. A typical 6-match day stays within the 100 req/day free tier.
+**Rate budgeting (api mode):** one `GET /get/games` call per tick; poll fast while matches are live, slower inside a kickoff window, and not at all when nothing is live or near kickoff - comfortably within the API's 500 req/60 s limit. Cadence is tunable via `WORLDCUP_POLL_*`.
+
+### Squads (static bundle, no live polling)
+```
+Zafronix API (fetched once)  →  backend/data/team_rosters_2026.json  →  roster_seed.py  →  team_rosters table
+```
+Squads and coaches for all 48 teams are bundled as static JSON and seeded into `team_rosters` at setup. There is no live Zafronix polling by default (`ZAFRONIX_LIVE_FETCH_ENABLED=false`) - the free tier is only 250 req/day. `scripts/resync_team_rosters.py` can refresh the bundle manually.
 
 ---
 
@@ -267,7 +276,7 @@ Next.js 14 App Router (`frontend/`), TypeScript, Tailwind.
 |------|----------|
 | `app/` | Route segments: `page.tsx` (home), `matchday/`, `matchday/[id]/`, `bracket/`, `fanplan/`, `watch/`, `following/`, `auth/`, plus `layout.tsx` and icon/manifest routes. |
 | `components/` | Feature UI: `matchday/`, `bracket/`, `watch/`, `FanPlanMap`, `Nav`, `TeamFlag`, `Atmosphere`, `TrophyIcon`, etc. |
-| `lib/` | Data + helpers: `api.ts` (REST client using `NEXT_PUBLIC_API_URL`), `websocket.ts` (subscribes to channels via `NEXT_PUBLIC_WS_URL`), and domain modules (`matchday.ts`, `watch.ts`, `bracketGroups.ts`, `knockoutBracket.ts`, `r32Seeding.ts`, `fanplan.ts`, `flags.ts`, `simResults.ts`). |
+| `lib/` | Data + helpers: `api.ts` (REST client using `NEXT_PUBLIC_API_URL`), `websocket.tsx` (subscribes to channels via `NEXT_PUBLIC_WS_URL`), and domain modules (`matchday.ts`, `watch.ts`, `bracketGroups.ts`, `knockoutBracket.ts`, `r32Seeding.ts`, `fanplan.ts`, `flags.ts`, `simResults.ts`). |
 | `styles/` | Theme tokens + per-feature CSS (`theme.css`, `atmosphere.css`, `home.css`, `matchday.css`, `watch.css`). |
 
 **Data flow:** pages fetch via `lib/api.ts` for initial state, then open a WebSocket through `lib/websocket.ts` and subscribe to the relevant channels (`matches:live`, `match:{id}`, `matches:alerts`, `room:{id}`, `sim:{task_id}`) for live updates. The client never contacts a football API.
@@ -276,12 +285,14 @@ Next.js 14 App Router (`frontend/`), TypeScript, Tailwind.
 
 ## 10. Configuration & environments
 
-| Concern | Local (SQLite) | Local (Postgres) | Docker |
-|---------|----------------|------------------|--------|
-| `DATABASE_URL` | unset → SQLite default | `postgresql+asyncpg://…@localhost` | injected to the `postgres` service |
-| `DATA_MODE` | `live` (seed) | `live` | from `.env` |
-| `LIVE_DATA_MODE` | `demo` | `demo` or `api` | from `.env` |
-| Seeding | `scripts/init_db_data.py` | `scripts/init_db_data.py` | runs at startup via lifespan |
+| Concern | Local (Postgres) | Docker | Production (Neon / DigitalOcean) |
+|---------|------------------|--------|----------------------------------|
+| `DATABASE_URL` | `postgresql+asyncpg://…@localhost` | injected to the `postgres` service | Neon pooled string (`?sslmode=require`) |
+| `DATA_MODE` | `live` (seed) | from `.env` | `mock` after initial setup |
+| `LIVE_DATA_MODE` | `demo` or `api` | from `.env` | `api` (with `WORLDCUP_API_TOKEN`) |
+| Seeding | `python -m app.setup` | runs at startup via lifespan | `python -m app.setup` once on first deploy |
+
+> If `DATABASE_URL` is unset, the backend falls back to the local SQLite file (`backend/kickoff26.db`) - convenient for a quick spin-up and the engine the test suite uses, but Postgres is the documented path for dev and production.
 
 Settings load once at startup, so **restart the backend after editing `.env`**.
 
@@ -296,6 +307,9 @@ Settings load once at startup, so **restart the backend after editing `.env`**.
 
 ## 12. Deployment notes
 
-- `docker-compose.yml` builds the backend image (`backend/Dockerfile`) and runs it alongside `postgres:16-alpine` with a health-gated dependency.
-- For production, set a strong `JWT_SECRET`, use `LIVE_DATA_MODE=api` with a real `API_FOOTBALL_KEY`, and front the app with a TLS-terminating reverse proxy (the WebSocket endpoint is `/ws`).
-- The frontend is a standard Next.js build (`npm run build && npm start`) pointed at the backend via `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL`.
+Production topology: **frontend on Vercel, backend on DigitalOcean App Platform, database on Neon Postgres.**
+
+- **Frontend (Vercel):** a standard Next.js build, pointed at the backend via `NEXT_PUBLIC_API_URL` (`https://kickoff26-backend-vknuo.ondigitalocean.app`) and `NEXT_PUBLIC_WS_URL` (`wss://…/ws`).
+- **Backend (DigitalOcean App Platform):** built from [`backend/Dockerfile`](./backend/Dockerfile), serving HTTP and the `/ws` WebSocket endpoint over TLS. Set a strong `JWT_SECRET`, `LIVE_DATA_MODE=api` with a valid `WORLDCUP_API_TOKEN`, and the production `CORS_ORIGINS`. Run `python -m app.setup` once against the empty Neon database.
+- **Database (Neon):** use the pooled connection string; TLS is enabled automatically.
+- **Local containers:** `docker-compose.yml` builds the backend image and runs it alongside `postgres:16-alpine` with a health-gated dependency - for local/offline work, not the production path.
