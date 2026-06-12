@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { api, clearToken, getToken, setToken } from "@/lib/api";
-import type { RegisterProfile } from "@/lib/signupProfile";
+import { detectBrowserTimezone, type RegisterProfile } from "@/lib/signupProfile";
 
 export type AuthUser = {
   id: number;
@@ -19,6 +19,8 @@ export type AuthUser = {
   favorite_team_id: number | null;
   country_region: string | null;
   preferred_language: string | null;
+  timezone: string | null;
+  resolved_timezone?: string; // backend-resolved effective zone (timezone -> country -> UTC)
 };
 
 type AuthContextValue = {
@@ -90,6 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       if (profile.country_region) body.country_region = profile.country_region;
       if (profile.preferred_language) body.preferred_language = profile.preferred_language;
+      // Auto-detect the browser timezone at signup (no user input); the form
+      // may also pass one explicitly via profile.timezone.
+      const timezone = profile.timezone ?? detectBrowserTimezone();
+      if (timezone) body.timezone = timezone;
       if (profile.followed_team_ids?.length) {
         body.followed_team_ids = profile.followed_team_ids;
       }

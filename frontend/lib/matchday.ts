@@ -95,14 +95,27 @@ export function dayCountsFromMatches(matches: Match[]): MatchDay[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export function formatKickoff(iso: string | null | undefined, opts?: Intl.DateTimeFormatOptions) {
+/**
+ * Format a UTC kickoff in a target IANA zone.
+ *
+ * `zone` is the display timezone (from useDisplayTimezone()). When omitted/null
+ * it renders in the browser's local zone - the historical default, so any
+ * un-migrated caller keeps its previous behavior. `opts` overrides the default
+ * month/day/hour/minute parts.
+ */
+export function formatKickoff(
+  iso: string | null | undefined,
+  zone?: string | null,
+  opts?: Intl.DateTimeFormatOptions
+) {
   if (!iso) return "TBD";
-  return new Date(iso).toLocaleString(undefined, opts ?? {
+  const base: Intl.DateTimeFormatOptions = opts ?? {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  });
+  };
+  return new Date(iso).toLocaleString(undefined, zone ? { ...base, timeZone: zone } : base);
 }
 
 export function formatDayLabel(dateKey: string) {
@@ -148,10 +161,15 @@ export function sortDayMatches(matches: Match[]): Match[] {
   return [...live, ...rest];
 }
 
-export function groupByKickoffSlot(matches: Match[]): Record<string, Match[]> {
+export function groupByKickoffSlot(
+  matches: Match[],
+  zone?: string | null
+): Record<string, Match[]> {
   const groups: Record<string, Match[]> = {};
   for (const m of matches) {
-    const slot = m.kickoff_at ? formatKickoff(m.kickoff_at, { hour: "2-digit", minute: "2-digit" }) : "TBD";
+    const slot = m.kickoff_at
+      ? formatKickoff(m.kickoff_at, zone, { hour: "2-digit", minute: "2-digit" })
+      : "TBD";
     const key = `Group ${m.group_letter ?? "?"} · ${slot}`;
     groups[key] = groups[key] ?? [];
     groups[key].push(m);

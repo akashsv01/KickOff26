@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TeamFlag } from "@/components/TeamFlag";
 import { formatKickoff, type Match } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { useWebSocket } from "@/lib/websocket";
 
 export default function MatchDetailPage() {
@@ -18,6 +19,7 @@ export default function MatchDetailPage() {
   const router = useRouter();
   const matchId = Number(params.id);
   const { user, token, refreshUser } = useAuth();
+  const zone = useDisplayTimezone();
   const [match, setMatch] = useState<Match | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export default function MatchDetailPage() {
             )}
           </div>
           <p className="mt-2 text-xs tabular-nums text-app-faint">
-            Group {match.group_letter} · {formatKickoff(match.kickoff_at)}
+            Group {match.group_letter} · {formatKickoff(match.kickoff_at, zone)}
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-8">

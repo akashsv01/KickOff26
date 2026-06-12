@@ -9,6 +9,7 @@ import {
   matchDateKey,
   type Match,
 } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 
 /* ----------------------------------------------------------------- */
 /* Animated count-up (respects prefers-reduced-motion)               */
@@ -151,6 +152,7 @@ const SmallArrow = () => (
 );
 
 export default function HomePage() {
+  const zone = useDisplayTimezone();
   const [matches, setMatches] = useState<Match[] | null>(null);
 
   useEffect(() => {
@@ -235,7 +237,7 @@ export default function HomePage() {
                   {nextFixture.home_team?.code} v {nextFixture.away_team?.code}
                 </span>
                 <span className="home-live-item-meta">
-                  {formatKickoff(nextFixture.kickoff_at)}
+                  {formatKickoff(nextFixture.kickoff_at, zone)}
                   {nextFixture.city ? ` · ${nextFixture.city}` : ""}
                 </span>
               </div>

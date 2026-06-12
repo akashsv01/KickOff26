@@ -105,13 +105,32 @@ def _migrate_user_profile_columns(sync_conn) -> None:
     if "users" not in insp.get_table_names():
         return
     cols = {c["name"] for c in insp.get_columns("users")}
+    added: set[str] = set()
     for col, ddl in (
         ("favorite_team_id", "INTEGER"),
         ("country_region", "VARCHAR(64)"),
         ("preferred_language", "VARCHAR(16)"),
+        ("timezone", "VARCHAR(64)"),
+        ("daily_digest_opt_in", "BOOLEAN DEFAULT FALSE NOT NULL"),
     ):
         if col not in cols:
             sync_conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
+            added.add(col)
+
+    # Backfill timezone from the country map where we can, only for rows that
+    # don't have one yet. Idempotent: the WHERE timezone IS NULL guard means
+    # re-runs and user-set values are never overwritten.
+    if "timezone" in added or "country_region" in (cols | added):
+        from app.data.country_timezones import COUNTRY_TIMEZONE
+
+        for country, tz in COUNTRY_TIMEZONE.items():
+            sync_conn.execute(
+                text(
+                    "UPDATE users SET timezone = :tz "
+                    "WHERE country_region = :country AND (timezone IS NULL OR timezone = '')"
+                ),
+                {"tz": tz, "country": country},
+            )
 
 
 def _migrate_team_roster_table(sync_conn) -> None:

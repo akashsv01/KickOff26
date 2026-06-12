@@ -86,7 +86,12 @@ export default function Nav() {
           </div>
           {!loading && user ? (
             <>
-              <span className="ml-1 hidden text-app-gold lg:inline">Hi, {user.username}</span>
+              <Link
+                href="/profile"
+                className={isActive("/profile") ? "nav-link-active ml-1" : "nav-link ml-1"}
+              >
+                Hi, {user.username}
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -150,7 +155,12 @@ export default function Nav() {
             <div className="nav-drawer-divider" />
             {!loading && user ? (
               <>
-                <span className="nav-drawer-user">Signed in as {user.username}</span>
+                <Link
+                  href="/profile"
+                  className={`nav-drawer-link${isActive("/profile") ? " nav-drawer-link-active" : ""}`}
+                >
+                  Profile ({user.username})
+                </Link>
                 <button type="button" onClick={handleLogout} className="nav-drawer-link text-left">
                   Log out
                 </button>

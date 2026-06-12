@@ -6,6 +6,7 @@ import { TeamFlag } from "@/components/TeamFlag";
 import { AnimatedScore } from "@/components/matchday/AnimatedScore";
 import { LiveBadge } from "@/components/matchday/LiveBadge";
 import { formatKickoff, matchDetailHref, type Match } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { OFFICIAL_TOURNAMENT_LINKS, matchHeaderLine, type WatchParticipant } from "@/lib/watch";
 import { WatchPresenceStrip } from "./WatchPresence";
 
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function WatchRoomHeader({ match, watcherCount, participants, connected }: Props) {
+  const zone = useDisplayTimezone();
   const home = match.home_team;
   const away = match.away_team;
   const isLive = match.status === "live";
@@ -84,7 +86,7 @@ export function WatchRoomHeader({ match, watcherCount, participants, connected }
           </div>
 
           {!isLive && !isFinished && (
-            <p className="watch-match-hero-kickoff">{formatKickoff(match.kickoff_at)}</p>
+            <p className="watch-match-hero-kickoff">{formatKickoff(match.kickoff_at, zone)}</p>
           )}
           {isLive && match.minute != null && (
             <p className="watch-match-hero-clock">{match.minute}&apos;</p>
@@ -98,7 +100,7 @@ export function WatchRoomHeader({ match, watcherCount, participants, connected }
         </div>
       </div>
 
-      <p className="watch-match-hero-meta">{matchHeaderLine(match)}</p>
+      <p className="watch-match-hero-meta">{matchHeaderLine(match, zone)}</p>
 
       <div className="watch-match-hero-actions">
         <Link href={matchDetailHref(match.id)} className="watch-pill-btn watch-pill-btn-secondary">

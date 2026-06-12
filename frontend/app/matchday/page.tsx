@@ -22,10 +22,12 @@ import {
   type MatchAlertPayload,
 } from "@/lib/matchday";
 import { useMatchDayNotifications } from "@/lib/matchday-notifications";
+import { TimesInZoneLabel, useDisplayTimezone } from "@/lib/timezone";
 import { useWebSocket } from "@/lib/websocket";
 
 export default function MatchDayPage() {
   const { token } = useAuth();
+  const zone = useDisplayTimezone();
   const { addFromAlert, addStatusNotification } = useMatchDayNotifications();
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedDay, setSelectedDay] = useState("");
@@ -55,8 +57,8 @@ export default function MatchDayPage() {
   );
 
   const slotGroups = useMemo(
-    () => groupByKickoffSlot(scheduledMatches),
-    [scheduledMatches]
+    () => groupByKickoffSlot(scheduledMatches, zone),
+    [scheduledMatches, zone]
   );
 
   const primaryLiveMatch = liveMatches[0] ?? matches.find((m) => m.status === "live") ?? null;
@@ -278,6 +280,10 @@ export default function MatchDayPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {dayMatches.length > 0 && (
+            <TimesInZoneLabel className="fixed bottom-3 left-4 z-40 rounded-md bg-black/45 px-3 py-1.5 text-xs font-bold text-app-secondary shadow-lg backdrop-blur" />
           )}
         </div>
       </div>

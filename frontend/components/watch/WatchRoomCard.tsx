@@ -4,6 +4,7 @@ import { TeamFlag } from "@/components/TeamFlag";
 import { AnimatedScore } from "@/components/matchday/AnimatedScore";
 import { LiveBadge } from "@/components/matchday/LiveBadge";
 import { formatKickoff, type Match } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { matchStatusLabel, watcherCountForMatch, type RoomSummary } from "@/lib/watch";
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export function WatchRoomCard({ match, summaries, activeRoomId, onJoin, hero }: Props) {
+  const zone = useDisplayTimezone();
   const home = match.home_team?.code ?? "???";
   const away = match.away_team?.code ?? "???";
   const isLive = match.status === "live";
@@ -67,7 +69,7 @@ export function WatchRoomCard({ match, summaries, activeRoomId, onJoin, hero }: 
       </div>
 
       <div className="watch-room-card-meta">
-        <span>{isLive ? "In progress" : formatKickoff(match.kickoff_at)}</span>
+        <span>{isLive ? "In progress" : formatKickoff(match.kickoff_at, zone)}</span>
         <span className="watch-watching-count">
           <span className="watch-watching-dot" aria-hidden />
           {watching} watching

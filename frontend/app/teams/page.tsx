@@ -7,6 +7,7 @@ import { PlayerToWatchCard } from "@/components/teams/PlayerToWatchCard";
 import { TeamSquadBlock } from "@/components/teams/TeamSquad";
 import { api } from "@/lib/api";
 import { formatKickoff, type Match, type Team } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 import type { TeamProfile } from "@/lib/teams";
 
 const GROUP_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"];
@@ -26,6 +27,7 @@ function TeamDetail({
   matches: Match[];
   onBack: () => void;
 }) {
+  const zone = useDisplayTimezone();
   const [profile, setProfile] = useState<TeamProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -97,7 +99,7 @@ function TeamDetail({
               <span className="team-fixture-meta">
                 {score ? `${score} · ` : ""}
                 {m.status === "live" ? "LIVE · " : ""}
-                {formatKickoff(m.kickoff_at)}
+                {formatKickoff(m.kickoff_at, zone)}
                 {m.city ? ` · ${m.city}` : ""}
               </span>
             </div>

@@ -57,7 +57,13 @@ export async function api<T>(
       const err = await res.json().catch(() => ({ detail: res.statusText }));
       throw new Error(formatApiError(err.detail, res.statusText));
     }
-    return res.json();
+    // No-content responses (e.g. 204 from DELETE) have an empty body - don't
+    // try to parse them as JSON.
+    if (res.status === 204 || res.status === 205) {
+      return undefined as T;
+    }
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error(

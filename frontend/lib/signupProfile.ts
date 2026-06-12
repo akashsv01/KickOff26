@@ -72,7 +72,79 @@ export type RegisterProfile = {
   favorite_team_id: number;
   country_region?: string;
   preferred_language?: string;
+  timezone?: string;
   followed_team_ids?: number[];
 };
 
 export const MAX_EXTRA_FOLLOWS = 5;
+
+/** Browser IANA timezone (e.g. "Europe/London"), or null if unavailable. */
+export function detectBrowserTimezone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Curated fallback list (covers every signup-country zone) for older browsers. */
+const FALLBACK_TIMEZONES = [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "America/Mexico_City",
+  "America/Bogota",
+  "America/Sao_Paulo",
+  "America/Argentina/Buenos_Aires",
+  "America/Santiago",
+  "Europe/London",
+  "Europe/Lisbon",
+  "Europe/Madrid",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Amsterdam",
+  "Europe/Brussels",
+  "Europe/Zurich",
+  "Europe/Rome",
+  "Europe/Warsaw",
+  "Europe/Stockholm",
+  "Europe/Oslo",
+  "Europe/Copenhagen",
+  "Europe/Istanbul",
+  "Africa/Casablanca",
+  "Africa/Lagos",
+  "Africa/Cairo",
+  "Africa/Johannesburg",
+  "Asia/Riyadh",
+  "Asia/Qatar",
+  "Asia/Dubai",
+  "Asia/Kolkata",
+  "Asia/Jakarta",
+  "Asia/Shanghai",
+  "Asia/Tokyo",
+  "Asia/Seoul",
+  "Australia/Sydney",
+];
+
+/**
+ * Full IANA timezone list for the profile dropdown. Uses the browser's
+ * Intl.supportedValuesOf("timeZone") when available, else a curated fallback.
+ * `current` is always included so a stored value never disappears.
+ */
+export function timezoneOptions(current?: string | null): string[] {
+  let zones: string[] = FALLBACK_TIMEZONES;
+  try {
+    const supported = (
+      Intl as unknown as { supportedValuesOf?: (k: string) => string[] }
+    ).supportedValuesOf?.("timeZone");
+    if (supported && supported.length) zones = supported;
+  } catch {
+    /* keep fallback */
+  }
+  const set = new Set(zones);
+  if (current) set.add(current);
+  return Array.from(set).sort();
+}

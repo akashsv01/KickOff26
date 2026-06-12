@@ -193,8 +193,8 @@ export function groupChatMessages(messages: WatchMessage[], currentUsername: str
   return groups;
 }
 
-export function matchHeaderLine(match: Match): string {
-  const parts = [formatKickoff(match.kickoff_at)];
+export function matchHeaderLine(match: Match, zone?: string | null): string {
+  const parts = [formatKickoff(match.kickoff_at, zone)];
   if (match.venue) parts.push(match.venue);
   if (match.city) parts.push(match.city);
   if (match.group_letter) parts.push(`Group ${match.group_letter}`);

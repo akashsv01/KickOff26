@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
+
+from app.data.country_timezones import resolve_timezone
 
 ALLOWED_LANGUAGES = frozenset({"en", "es", "fr", "de", "pt", "ar", "zh", "ja", "ko", "it", "nl"})
 
@@ -12,11 +14,20 @@ class UserCreate(BaseModel):
     favorite_team_id: int
     country_region: str | None = Field(default=None, max_length=64)
     preferred_language: str | None = Field(default=None, max_length=16)
+    timezone: str | None = Field(default=None, max_length=64)
     followed_team_ids: list[int] = Field(default_factory=list, max_length=8)
 
     @field_validator("country_region")
     @classmethod
     def strip_country(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
+
+    @field_validator("timezone")
+    @classmethod
+    def strip_timezone(cls, value: str | None) -> str | None:
         if value is None:
             return None
         trimmed = value.strip()
@@ -51,14 +62,62 @@ class UserResponse(BaseModel):
     favorite_team_id: int | None = None
     country_region: str | None = None
     preferred_language: str | None = None
+    timezone: str | None = None
 
     model_config = {"from_attributes": True}
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def resolved_timezone(self) -> str:
+        """Effective display zone: explicit timezone -> country map -> UTC.
+
+        Mirrors backend resolve_timezone(user) so the frontend never has to
+        replicate the country map and never falls back to UTC for a known
+        country (e.g. India -> Asia/Kolkata).
+        """
+        return resolve_timezone(self)
 
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+class UserProfileResponse(BaseModel):
+    """Full account view for the authenticated user (/api/users/me)."""
+
+    id: int
+    username: str
+    email: str
+    country: str | None = None  # stored as User.country_region
+    timezone: str | None = None
+    daily_digest_opt_in: bool = False
+    created_at: datetime | None = None
+
+
+class UserUpdate(BaseModel):
+    """Self-service profile edit. Every field optional - only provided ones change."""
+
+    username: str | None = Field(default=None, min_length=3, max_length=100)
+    email: EmailStr | None = None
+    country: str | None = Field(default=None, max_length=64)
+    timezone: str | None = Field(default=None, max_length=64)
+    password: str | None = Field(default=None, min_length=6)
+    current_password: str | None = None  # required when changing password
+    daily_digest_opt_in: bool | None = None
+
+    @field_validator("username", "country", "timezone")
+    @classmethod
+    def strip_optional(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
+
+
+class AccountDeleteRequest(BaseModel):
+    password: str = Field(min_length=1)
 
 
 class TeamResponse(BaseModel):

@@ -57,6 +57,7 @@ async def create_user(
     favorite_team_id: int | None = None,
     country_region: str | None = None,
     preferred_language: str | None = None,
+    timezone: str | None = None,
     followed_team_ids: list[int] | None = None,
 ) -> User:
     user = User(
@@ -67,6 +68,7 @@ async def create_user(
         favorite_team_id=favorite_team_id,
         country_region=country_region,
         preferred_language=preferred_language,
+        timezone=timezone,
     )
     db.add(user)
     await db.flush()

@@ -3,23 +3,20 @@
 import type { FanPlanStop } from "@/components/FanPlanMap";
 import { TeamFlag } from "@/components/TeamFlag";
 import { formatUsdRange, stopTicketHigh, stopTicketLow } from "@/lib/fanplan";
+import { formatKickoff as formatKickoffInZone } from "@/lib/matchday";
 import { CountryFlag } from "./CountryFlag";
 import { IconPassport, IconPlane } from "./FanPlanIcons";
 
-function formatKickoff(iso: string | null | undefined): string {
+function formatKickoff(iso: string | null | undefined, zone?: string | null): string {
   if (!iso) return "Date TBD";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatKickoffInZone(iso, zone, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function parseMatchTeams(label: string): [string, string] | null {
@@ -30,9 +27,10 @@ function parseMatchTeams(label: string): [string, string] | null {
 
 type Props = {
   stops: FanPlanStop[];
+  zone?: string | null;
 };
 
-export function FanPlanTimeline({ stops }: Props) {
+export function FanPlanTimeline({ stops, zone }: Props) {
   return (
     <ol className="fanplan-timeline">
       {stops.map((s, i) => {
@@ -99,7 +97,7 @@ export function FanPlanTimeline({ stops }: Props) {
                 ) : (
                   <p className="text-sm font-semibold text-app">{s.match_label}</p>
                 )}
-                <p className="fanplan-fixture-date">{formatKickoff(s.kickoff_at)}</p>
+                <p className="fanplan-fixture-date">{formatKickoff(s.kickoff_at, zone)}</p>
               </div>
 
               <p className="fanplan-ticket-note">

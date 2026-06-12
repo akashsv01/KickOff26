@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { formatKickoff as formatKickoffInZone } from "@/lib/matchday";
 
 export type FanPlanStop = {
   city: string;
@@ -56,22 +57,24 @@ function FitRouteBounds({ stops }: { stops: FanPlanStop[] }) {
   return null;
 }
 
-function formatKickoff(iso: string | null | undefined): string {
+function formatKickoff(iso: string | null | undefined, zone?: string | null): string {
   if (!iso) return "Date TBD";
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return formatKickoffInZone(iso, zone, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
-export default function FanPlanMap({ stops }: { stops: FanPlanStop[] }) {
+export default function FanPlanMap({
+  stops,
+  zone,
+}: {
+  stops: FanPlanStop[];
+  zone?: string | null;
+}) {
   if (stops.length === 0) return null;
 
   const route: [number, number][] = stops.map((s) => [s.lat, s.lng]);
@@ -115,7 +118,7 @@ export default function FanPlanMap({ stops }: { stops: FanPlanStop[] }) {
                 <br />
                 {s.stadium}
                 <br />
-                {formatKickoff(s.kickoff_at)}
+                {formatKickoff(s.kickoff_at, zone)}
                 <br />
                 {s.ticket_estimate?.display_range ? (
                   <>

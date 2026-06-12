@@ -10,6 +10,7 @@ import { FanPlanTimeline } from "@/components/fanplan/FanPlanTimeline";
 import { exportItineraryToPdf } from "@/lib/exporters";
 import { formatUsdRange, normalizeItinerary, type Itinerary } from "@/lib/fanplan";
 import { formatKickoff } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -19,6 +20,7 @@ type Team = { id: number; name: string; code: string };
 
 export default function FanPlanPage() {
   const { user } = useAuth();
+  const zone = useDisplayTimezone();
   const [teams, setTeams] = useState<Team[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [plan, setPlan] = useState<Itinerary | null>(null);
@@ -80,7 +82,7 @@ export default function FanPlanPage() {
             country: s.country,
             venue: s.stadium,
             fixture: s.match_label,
-            date: s.kickoff_at ? formatKickoff(s.kickoff_at) : null,
+            date: s.kickoff_at ? formatKickoff(s.kickoff_at, zone) : null,
             ticketRange: s.ticket_estimate?.display_range ?? formatUsdRange(
               s.ticket_estimate?.low_usd,
               s.ticket_estimate?.high_usd
@@ -191,7 +193,7 @@ export default function FanPlanPage() {
                     travelKm={plan.total_travel_km ?? 0}
                     matchCount={plan.stops.length}
                   />
-                  <FanPlanTimeline stops={plan.stops} />
+                  <FanPlanTimeline stops={plan.stops} zone={zone} />
                 </>
               )}
 
@@ -204,7 +206,7 @@ export default function FanPlanPage() {
 
           {plan.stops.length > 0 ? (
             <div ref={mapRef}>
-              <FanPlanMap stops={plan.stops} />
+              <FanPlanMap stops={plan.stops} zone={zone} />
             </div>
           ) : null}
         </>

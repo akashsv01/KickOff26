@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TeamFlag } from "@/components/TeamFlag";
 import { formatKickoff, matchDetailHref, navigateToMatchDetail, type Match } from "@/lib/matchday";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { AnimatedScore } from "./AnimatedScore";
 import { glassCardClass, matchCardClick, matchCardKeyDown } from "./GlassCard";
 import { LiveBadge } from "./LiveBadge";
@@ -21,6 +22,7 @@ export function MatchCard({
   staggerIndex?: number;
 }) {
   const router = useRouter();
+  const zone = useDisplayTimezone();
   const homeCode = m.home_team?.code ?? "???";
   const awayCode = m.away_team?.code ?? "???";
   const isLive = m.status === "live";
@@ -62,7 +64,7 @@ export function MatchCard({
           </div>
           {!compact && (
             <div className="mt-1.5 text-xs tabular-nums text-app-faint">
-              {formatKickoff(m.kickoff_at)}
+              {formatKickoff(m.kickoff_at, zone)}
             </div>
           )}
           <div className="mt-4 flex items-center justify-between gap-2">
