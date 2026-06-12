@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     zafronix_roster_retry_hours: int = 24
     zafronix_request_timeout: float = 20.0
     zafronix_prefetch_interval_seconds: int = 120
+    # Manual-only live Zafronix roster fetch (default off — squads come from bundled JSON).
+    zafronix_live_fetch_enabled: bool = False
 
     # rezarahiminia live poller cadence (single shared backend poller)
     worldcup_poll_live_seconds: int = 25
@@ -106,6 +108,11 @@ class Settings(BaseSettings):
     @property
     def has_zafronix_key(self) -> bool:
         return bool(self.zafronix_api_key)
+
+    @property
+    def zafronix_live_fetch(self) -> bool:
+        """True when background/on-demand Zafronix HTTP fetches are allowed."""
+        return self.zafronix_live_fetch_enabled and self.has_zafronix_key
 
     @property
     def cors_origin_list(self) -> list[str]:

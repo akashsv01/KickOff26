@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { api } from "@/lib/api";
 import {
   formatKickoff,
+  localTodayKey,
   matchDateKey,
   type Match,
 } from "@/lib/matchday";
@@ -169,7 +170,7 @@ export default function HomePage() {
   const hasData = matches !== null && matches.length > 0;
   const liveCount = hasData ? matches!.filter((m) => m.status === "live").length : 0;
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localTodayKey();
   const todayCount = hasData
     ? matches!.filter((m) => matchDateKey(m) === todayKey).length
     : 0;

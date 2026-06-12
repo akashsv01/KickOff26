@@ -14,6 +14,7 @@ from app.db import async_session, init_db
 from app.main import app
 from app.services.data_ingestion import DataIngestionService
 from app.services.match_lineups import clear_stored_lineups
+from app.services.roster_seed import seed_team_rosters_from_bundle
 
 
 @pytest.fixture(scope="session")
@@ -25,6 +26,7 @@ async def setup_db():
     async with async_session() as db:
         await DataIngestionService(db).sync_all(force=True)
         await clear_stored_lineups(db)
+        await seed_team_rosters_from_bundle(db)
         await db.commit()
 
 

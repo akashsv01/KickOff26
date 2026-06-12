@@ -6,6 +6,7 @@ from app.api.deps import get_current_user
 from app.db import get_db
 from app.models import Team, User
 from app.schemas import FollowTeamsRequest, TeamProfileResponse, TeamResponse
+from app.services.roster_seed import seed_team_rosters_from_bundle
 from app.services.team_roster_service import build_team_profile, resync_all_rosters
 from app.services.tournament_2026 import OFFICIAL_TEAMS
 
@@ -38,12 +39,22 @@ async def team_profile(team_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/rosters/resync")
 async def resync_rosters(
     force: bool = False,
+    live: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    """Re-fetch Zafronix rosters (use force=true to refresh every team)."""
-    count = await resync_all_rosters(db, force=force)
+    """Re-seed squads from bundled JSON, or live Zafronix when live=true and flag enabled."""
+    from app.config import settings
+
+    if live:
+        if not settings.zafronix_live_fetch:
+            return {"synced": 0, "error": "ZAFRONIX_LIVE_FETCH_ENABLED is not true"}
+        count = await resync_all_rosters(db, force=force)
+        await db.commit()
+        return {"synced": count, "source": "zafronix_live"}
+
+    result = await seed_team_rosters_from_bundle(db, force=True)
     await db.commit()
-    return {"synced": count}
+    return {"source": "bundle", **result}
 
 
 @router.post("/follow")

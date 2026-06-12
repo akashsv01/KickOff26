@@ -1,5 +1,6 @@
 "use client";
 
+import { localTodayKey } from "@/lib/matchday";
 import { useMemo, useState } from "react";
 
 const MONTHS = ["June 2026", "July 2026"] as const;
@@ -29,7 +30,7 @@ export function TournamentCalendar({
 }) {
   const [monthIdx, setMonthIdx] = useState(0);
   const counts = useMemo(() => Object.fromEntries(days.map((d) => [d.date, d.match_count])), [days]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localTodayKey();
 
   const year = 2026;
   const month = monthIdx;

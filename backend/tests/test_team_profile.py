@@ -1,5 +1,3 @@
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
 from app.models import Team, TeamRoster
@@ -22,7 +20,7 @@ def _team(**kwargs) -> Team:
 def test_zafronix_slug_overrides():
     assert zafronix_slug_for_team(_team(code="CIV", name="Côte d'Ivoire")) == "Cote d'Ivoire"
     assert zafronix_slug_for_team(_team(code="CUW", name="Curaçao")) == "Curaçao"
-    assert zafronix_slug_for_team(_team(code="KOR", name="Korea Republic")) == "Korea Republic"
+    assert zafronix_slug_for_team(_team(code="KOR", name="Korea Republic")) == "South Korea"
 
 
 def test_normalize_lookup_key_strips_accents():
@@ -116,16 +114,7 @@ async def test_team_profile_endpoint(client, setup_db):
     teams = (await client.get("/api/teams")).json()
     mexico = next(t for t in teams if t["code"] == "MEX")
 
-    mock_players = [
-        {"jersey": 1, "name": "Memo Ochoa", "position": "GK", "club": "Club América (Mexico)"},
-    ]
-
-    with patch(
-        "app.services.team_roster_service.ZafronixApiClient.get_roster",
-        new_callable=AsyncMock,
-        return_value={"ok": True, "players": mock_players, "coach": None, "status_code": 200},
-    ):
-        res = await client.get(f"/api/teams/{mexico['id']}/profile")
+    res = await client.get(f"/api/teams/{mexico['id']}/profile")
 
     assert res.status_code == 200
     body = res.json()
@@ -133,20 +122,26 @@ async def test_team_profile_endpoint(client, setup_db):
     assert body["coach_source"] == "local"
     assert body["player_to_watch"]["player"] == "Santiago Gimenez"
     assert body["squad"]["status"] == "ready"
-    assert body["squad"]["players_by_position"]["GK"][0]["name"] == "Memo Ochoa"
+    gk = body["squad"]["players_by_position"]["GK"]
+    assert len(gk) >= 1
+    assert gk[0]["position"] == "GK"
 
 
 @pytest.mark.asyncio
 async def test_team_profile_unavailable_when_empty_roster(client, setup_db):
+    from sqlalchemy import delete
+
+    from app.db import async_session
+    from app.models import TeamRoster
+
     teams = (await client.get("/api/teams")).json()
     team = teams[0]
 
-    with patch(
-        "app.services.team_roster_service.ZafronixApiClient.get_roster",
-        new_callable=AsyncMock,
-        return_value={"ok": False, "players": [], "coach": None, "status_code": 404, "error": "not_found"},
-    ):
-        res = await client.get(f"/api/teams/{team['id']}/profile")
+    async with async_session() as db:
+        await db.execute(delete(TeamRoster).where(TeamRoster.team_id == team["id"]))
+        await db.commit()
+
+    res = await client.get(f"/api/teams/{team['id']}/profile")
 
     assert res.status_code == 200
     assert res.json()["squad"]["status"] == "unavailable"

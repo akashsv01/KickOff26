@@ -6,6 +6,7 @@ import { TournamentCalendar } from "@/components/matchday/TournamentCalendar";
 import {
   dayCountsFromMatches,
   defaultMatchDay,
+  localTodayKey,
   formatDayLabel,
   type Match,
 } from "@/lib/matchday";
@@ -27,7 +28,7 @@ type Props = {
 };
 
 export function WatchRoomBrowser({ matches, summaries, activeRoomId, onJoin }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localTodayKey();
   const days = useMemo(() => dayCountsFromMatches(matches), [matches]);
   const [selectedDay, setSelectedDay] = useState(() => defaultMatchDay(days.map((d) => d.date)));
   const [search, setSearch] = useState("");

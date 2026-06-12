@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { navigateToMatchDetail, type Match } from "@/lib/matchday";
+import { formatTodayLabel, navigateToMatchDetail, type Match } from "@/lib/matchday";
 
 export function MatchDaySummaryPanel({
   liveCount,
@@ -11,13 +11,7 @@ export function MatchDaySummaryPanel({
   liveMatch?: Match | null;
 }) {
   const router = useRouter();
-  const today = new Date();
-  const todayLabel = today.toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const todayLabel = formatTodayLabel();
 
   return (
     <div className="md-glass p-4">

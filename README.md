@@ -195,7 +195,8 @@ Copy `.env.example` to `.env` and adjust as needed. Backend settings live in `.e
 | `FOOTBALL_DATA_API_KEY` | Optional one-shot score merge from football-data.org at startup. | empty |
 | `CACHE_TTL_TEAMS` / `_MATCHES` / `_STANDINGS` | TTLs (seconds) for the DB-backed `api_cache`. | `86400` / `300` / `600` |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins. | `http://localhost:3000,http://127.0.0.1:3000` |
-| `ZAFRONIX_API_KEY` | Squad rosters on Teams & Stats (optional at setup; required for live roster pages). | empty |
+| `ZAFRONIX_API_KEY` | Optional — kept for manual live re-fetch only; squads ship from bundled JSON | empty |
+| `ZAFRONIX_LIVE_FETCH_ENABLED` | Set `true` only to enable live Zafronix HTTP fetches (default `false`) | `false` |
 | `GROQ_API_KEY` / `GROQ_MODEL` / `GROQ_MAX_TOKENS` | AI tournament assistant ([Groq](https://console.groq.com)). | empty / `llama-3.3-70b-versatile` / `1024` |
 | `NEXT_PUBLIC_API_URL` | Backend base URL used by the frontend. | `http://localhost:8000` |
 | `NEXT_PUBLIC_WS_URL` | WebSocket URL used by the frontend. | `ws://localhost:8000/ws` |
@@ -229,7 +230,8 @@ In your host’s env (Railway, Render, Fly, etc.) or `backend/.env`:
 | `LIVE_DATA_MODE` | Yes | Set to `api` for real tournament data |
 | `WORLDCUP_API_TOKEN` | Yes when `LIVE_DATA_MODE=api` | From `python scripts/get_worldcup_token.py` |
 | `DATA_MODE` | Recommended | Use `mock` after initial setup so restarts don’t force re-seed |
-| `ZAFRONIX_API_KEY` | Optional | Squad rosters; setup will prefetch if set |
+| `ZAFRONIX_API_KEY` | Optional | Kept for manual live re-fetch only |
+| `ZAFRONIX_LIVE_FETCH_ENABLED` | No | Leave `false` — squads come from bundled JSON |
 | `GROQ_API_KEY` | Optional | AI assistant |
 | `CORS_ORIGINS` | Yes | Your frontend URL(s), comma-separated |
 | `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` | Yes (frontend) | Public backend / WebSocket URLs |
@@ -247,13 +249,13 @@ This single command is **idempotent** and safe to re-run. It:
 1. **Creates the full schema** on an empty database (all tables, columns, foreign keys, API ID fields).
 2. **Seeds fixtures** from the bundled openfootball schedule (teams + matches).
 3. **Syncs WorldCup API data** — stadiums, team `api_object_id` / `api_seq_id`, game links, groups cache.
-4. **Prefetches Zafronix squads** when `ZAFRONIX_API_KEY` is set (skip with `--skip-rosters`).
+4. **Seeds bundled squads** from `backend/data/team_rosters_2026.json` (all 48 teams; no live Zafronix calls).
 
 Options:
 
 ```powershell
 python -m app.setup --schema-only      # migrations only, no data sync
-python -m app.setup --skip-rosters     # skip Zafronix squad prefetch
+python -m app.setup --skip-rosters     # skip bundled squad seed
 python -m app.setup --skip-worldcup    # openfootball seed only (offline)
 ```
 
@@ -279,6 +281,7 @@ Verify: `GET /health` should report `live_data_mode: api` and `worldcup_api_toke
 | Task | Command |
 |------|---------|
 | Re-sync tournament reference data | `python scripts/sync_worldcup_api.py` or `POST /api/matchday/worldcup/sync` |
+| Re-seed bundled squads | `python scripts/seed_team_rosters.py` or `POST /api/teams/rosters/resync` |
 | Clear watch-room test content only | `python scripts/clear_room_content.py --confirm` |
 | Check relational integrity | `python scripts/verify_db_integrity.py` |
 
@@ -388,7 +391,7 @@ KickOff26 uses **real data only**, with anything estimated or simulated clearly 
 | Group standings | Computed on the backend from live match state (tiebreakers: pts, GD, GF) | **Real**, derived |
 | Win probabilities | Poisson/Elo model in `app/models/win_probability.py` | **Model output** |
 | Ticket-price ranges (Travel Planner) | Published 2026 ticket-pricing reporting (sports/business press) | **Estimated** - not official quotes |
-| Team squads & rosters | [Zafronix API](https://api.zafronix.com) | **Real** (cached) |
+| Team squads & rosters | [Zafronix API](https://api.zafronix.com) — fetched once, bundled as `backend/data/team_rosters_2026.json`; served from DB with **no live polling** (free tier 250 req/day) | **Real** (static bundle) |
 | Head coaches & players to watch | [Bolavip](https://bolavip.com/en/world-cup/2026-world-cup-coaches-all-48-managers-of-the-qualified-national-teams) + local JSON | **Real** (curated) |
 | Travel distances/times (Travel Planner) | Great-circle estimates between host cities | **Estimated** |
 | Demo live match, cards, substitutions | `matchday_demo.py` simulation | **Demo/simulated** (only in `demo` mode) |

@@ -12,6 +12,8 @@ ZAFRONIX_SLUG_BY_CODE: dict[str, str] = {
     "CUW": "Curaçao",
     "TUR": "Turkiye",
     "CZE": "Czech Republic",
+    "COD": "Democratic Republic of the Congo",
+    "KOR": "South Korea",
 }
 
 # Canonical keys in team_coaches_2026.json / players_to_watch_2026.json (by team code).

@@ -112,9 +112,26 @@ export function formatDayLabel(dateKey: string) {
 
 export const TOURNAMENT_WINDOW = { start: "2026-06-11", end: "2026-07-19" };
 
-export function defaultMatchDay(dates: string[]): string {
+/** Calendar day in the user's local timezone (YYYY-MM-DD). Avoids UTC off-by-one from toISOString(). */
+export function localTodayKey(now = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function formatTodayLabel(now = new Date()): string {
+  return now.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+export function defaultMatchDay(dates: string[], now = new Date()): string {
   if (!dates.length) return "";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localTodayKey(now);
   const inWindow = today >= TOURNAMENT_WINDOW.start && today <= TOURNAMENT_WINDOW.end;
   if (inWindow && dates.includes(today)) return today;
   if (inWindow) {

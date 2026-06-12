@@ -52,7 +52,9 @@ async def lifespan(app: FastAPI):
             _live_task = asyncio.create_task(run_worldcup_poller())
         else:
             _live_task = asyncio.create_task(run_demo_live_loop())
-        if settings.has_zafronix_key:
+        if settings.zafronix_live_fetch:
+            # Rosters fetched once from Zafronix and bundled as team_rosters_2026.json;
+            # app serves from DB/file, no live polling (free tier 250 req/day).
             _roster_task = asyncio.create_task(run_roster_prefetch_loop())
 
     yield

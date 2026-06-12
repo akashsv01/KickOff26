@@ -79,6 +79,21 @@ async def get_roster_row(db: AsyncSession, team_id: int) -> TeamRoster | None:
 
 
 async def sync_team_roster(db: AsyncSession, team: Team, *, force: bool = False) -> TeamRoster:
+    """Live Zafronix fetch — only when ZAFRONIX_LIVE_FETCH_ENABLED=true."""
+    if not settings.zafronix_live_fetch:
+        row = await get_roster_row(db, team.id)
+        if row is not None:
+            return row
+        row = TeamRoster(
+            team_id=team.id,
+            zafronix_slug=zafronix_slug_for_team(team),
+            fetch_status="unavailable",
+            players=[],
+        )
+        db.add(row)
+        await db.flush()
+        return row
+
     row = await get_roster_row(db, team.id)
     if not force and row and _is_fresh(row):
         return row
@@ -156,14 +171,21 @@ def squad_status(roster_row: TeamRoster | None) -> str:
 async def build_team_profile(db: AsyncSession, team: Team, *, allow_fetch: bool = True) -> dict:
     row = await get_roster_row(db, team.id)
 
-    if allow_fetch and row and row.fetch_status == "ready" and players_need_raw_position_refresh(row.players or []):
+    # Rosters fetched once from Zafronix and bundled as team_rosters_2026.json;
+    # app serves from DB/file, no live polling (free tier 250 req/day).
+    live_fetch = allow_fetch and settings.zafronix_live_fetch
+
+    if live_fetch and row and row.fetch_status == "ready" and players_need_raw_position_refresh(row.players or []):
         row = await sync_team_roster(db, team, force=True)
 
-    if allow_fetch and not _is_fresh(row) and _can_retry(row):
+    if live_fetch and not _is_fresh(row) and _can_retry(row):
         row = await sync_team_roster(db, team)
 
     coach_name, coach_source = resolve_coach(team, row)
-    status = squad_status(row)
+    if row is None and not settings.zafronix_live_fetch:
+        status = "unavailable"
+    else:
+        status = squad_status(row)
     players = row.players if row and row.fetch_status == "ready" else []
     ptw = player_to_watch_from_local_json(team)
 
@@ -181,8 +203,8 @@ async def build_team_profile(db: AsyncSession, team: Team, *, allow_fetch: bool 
 
 
 async def resync_all_rosters(db: AsyncSession, *, force: bool = False) -> int:
-    """Re-fetch every team roster from Zafronix (admin / one-off cache bust)."""
-    if not settings.has_zafronix_key:
+    """Re-fetch every team roster from Zafronix (manual admin only — requires live fetch flag)."""
+    if not settings.zafronix_live_fetch:
         return 0
 
     teams = (
@@ -202,7 +224,7 @@ async def resync_all_rosters(db: AsyncSession, *, force: bool = False) -> int:
 
 async def prefetch_stale_rosters(db: AsyncSession, *, limit: int = 3) -> int:
     """Background refresh for a few stale/missing rosters (rate-limit friendly)."""
-    if not settings.has_zafronix_key:
+    if not settings.zafronix_live_fetch:
         return 0
 
     teams = (

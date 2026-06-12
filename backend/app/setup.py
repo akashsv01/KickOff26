@@ -48,9 +48,15 @@ def _print_result(result) -> None:
 
     rosters = result.rosters
     if rosters.get("skipped"):
-        print("Zafronix rosters: skipped (no API key or --skip-rosters)")
+        reason = rosters.get("error") or "skipped"
+        print(f"Rosters: {reason}")
     else:
-        print(f"Zafronix rosters: synced {rosters.get('synced', 0)}")
+        print(
+            f"Rosters: ready={rosters.get('ready', 0)}/{rosters.get('teams', '?')} "
+            f"seeded={rosters.get('seeded', 0)}"
+        )
+        if rosters.get("missing"):
+            print(f"  missing from bundle: {', '.join(rosters['missing'])}")
 
     uc = result.user_content
     print(
@@ -76,7 +82,7 @@ async def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--skip-rosters",
         action="store_true",
-        help="Skip Zafronix squad prefetch.",
+        help="Skip bundled squad seed (team_rosters_2026.json).",
     )
     parser.add_argument(
         "--skip-worldcup",

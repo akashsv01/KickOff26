@@ -13,7 +13,7 @@ from app.db import engine, init_db
 from app.models import Bracket, Match, Message, Team, User
 from app.services.data_ingestion import DataIngestionService
 from app.services.db_integrity import verify_database_integrity
-from app.services.team_roster_service import resync_all_rosters
+from app.services.roster_seed import seed_team_rosters_from_bundle
 from app.services.worldcup_sync import sync_worldcup_data
 
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ async def run_database_setup(
     1. Create / migrate schema (init_db)
     2. Upsert openfootball teams + fixtures
     3. Upsert WorldCup API reference data (teams, stadiums, games, groups)
-    4. Optionally prefetch Zafronix squads
+    4. Seed bundled Zafronix squad export (team_rosters_2026.json)
     """
     await init_db()
 
@@ -107,10 +107,14 @@ async def run_database_setup(
         else:
             worldcup = {"ok": True, "skipped": True, "reason": "LIVE_DATA_MODE is not api"}
 
-    rosters: dict = {"synced": 0, "skipped": True}
-    if not skip_rosters and settings.has_zafronix_key:
-        synced = await resync_all_rosters(db, force=False)
-        rosters = {"synced": synced, "skipped": False}
+    rosters: dict = {"seeded": 0, "skipped": True}
+    if not skip_rosters:
+        try:
+            rosters = await seed_team_rosters_from_bundle(db)
+            rosters["skipped"] = False
+        except FileNotFoundError as exc:
+            rosters = {"seeded": 0, "skipped": True, "error": str(exc)}
+            logger.warning("Roster bundle seed skipped: %s", exc)
 
     integrity = await verify_database_integrity(db)
     user_content = await count_user_generated_content(db)

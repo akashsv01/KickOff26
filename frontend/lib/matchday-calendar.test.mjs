@@ -47,3 +47,35 @@ test("ignores utc kickoff when local_date is set", () => {
   assert.equal(matchesForDay([match], "2026-06-11").length, 1);
   assert.equal(matchesForDay([match], "2026-06-12").length, 0);
 });
+
+function localTodayKey(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function defaultMatchDay(dates, now = new Date()) {
+  if (!dates.length) return "";
+  const today = localTodayKey(now);
+  const window = { start: "2026-06-11", end: "2026-07-19" };
+  const inWindow = today >= window.start && today <= window.end;
+  if (inWindow && dates.includes(today)) return today;
+  if (inWindow) {
+    const future = dates.find((d) => d >= today);
+    if (future) return future;
+  }
+  return dates[0];
+}
+
+test("localTodayKey uses local calendar components", () => {
+  const june11Local = new Date(2026, 5, 11, 22, 30, 0);
+  assert.equal(localTodayKey(june11Local), "2026-06-11");
+});
+
+test("defaultMatchDay aligns with localTodayKey not UTC slice", () => {
+  const now = new Date(2026, 5, 11, 23, 0, 0);
+  const dates = ["2026-06-11", "2026-06-12"];
+  assert.equal(defaultMatchDay(dates, now), localTodayKey(now));
+  assert.equal(defaultMatchDay(dates, now), "2026-06-11");
+});
