@@ -1,8 +1,8 @@
-# KickOff26
+# ⚽ KickOff26
 
 **A full-stack companion web app for the 2026 World Cup** - 48 teams across the United States, Canada, and Mexico, all in one broadcast-grade app. Live scores with a win-probability model, an interactive prediction bracket with a Monte Carlo simulator, a multi-city travel planner, and real-time fan rooms.
 
-### Live
+### 🔴 Live
 
 - **App:** https://kickoff2026.tech  (also https://kick-off26.vercel.app)
 - **API:** https://kickoff26-backend-vknuo.ondigitalocean.app
@@ -12,34 +12,35 @@
 
 ---
 
-## Table of contents
+## 🗂️ Table of contents
 
-- [Features](#features)
-- [Tech stack](#tech-stack)
-- [Live URLs](#live-urls)
-- [How it fits together](#how-it-fits-together)
-- [Local setup](#local-setup)
-- [Environment variables](#environment-variables)
-- [Deployment](#deployment)
-- [Project structure](#project-structure)
-- [Data sources & references](#data-sources--references)
-- [WebSocket channels](#websocket-channels)
-- [Testing](#testing)
-- [Principles](#principles)
-- [License](#license)
+- [Features](#-features)
+- [Tech stack](#-tech-stack)
+- [Live URLs](#-live-urls)
+- [How it fits together](#-how-it-fits-together)
+- [Local setup](#-local-setup)
+- [Environment variables](#-environment-variables)
+- [Deployment](#-deployment)
+- [Project structure](#-project-structure)
+- [Data sources & references](#-data-sources--references)
+- [WebSocket channels](#-websocket-channels)
+- [Testing](#-testing)
+- [Principles](#-principles)
+- [Contributing & contact](#-contributing--contact)
+- [License](#-license)
 
 ---
 
-## Features
+## ✨ Features
 
 > The in-app navigation uses friendly labels (routes in parentheses): **Live Matches** (`/matchday`), **Standings** (`/standings`), **Teams** (`/teams`), **Predictions** (`/bracket`), **Travel Planner** (`/fanplan`), **Following** (`/following`), **Fan Rooms** (`/watch`), **Resources** (`/resources`).
 
 | Module | What it does |
 |--------|--------------|
-| **Live Matches** (`/matchday`) | Live scores dashboard backed by a self-built Poisson/Elo win-probability model, a personalized following feed, match detail pages with event timelines, and momentum alerts pushed over WebSocket. |
-| **Predictions / Bracket** (`/bracket`) | Build group-stage and knockout picks by hand, or run a **Monte Carlo simulator** (1k / 10k / 50k runs) in a background process pool for advancement and champion odds. Export your knockout bracket as a shareable PNG or PDF. |
-| **Travel Planner** (`/fanplan`) | A multi-city itinerary optimizer that picks the best set of matches to attend across the 16 host cities given your followed teams, budget, and travel constraints - with estimated ticket and travel costs, rendered on an interactive Leaflet map and exportable to PDF. |
-| **Fan Rooms** (`/watch`) | Per-match real-time chat rooms with live presence, custom polls, and floating emoji reactions. Viewing is open to everyone; sending messages and creating polls requires login. |
+| 🔴 **Live Matches** (`/matchday`) | Live scores dashboard backed by a self-built Poisson/Elo win-probability model, a personalized following feed, match detail pages with event timelines, and momentum alerts pushed over WebSocket. |
+| 🏆 **Predictions / Bracket** (`/bracket`) | Build group-stage and knockout picks by hand, or run a **Monte Carlo simulator** (1k / 10k / 50k runs) in a background process pool for advancement and champion odds. Export your knockout bracket as a shareable PNG or PDF. |
+| ✈️ **Travel Planner** (`/fanplan`) | A multi-city itinerary optimizer that picks the best set of matches to attend across the 16 host cities given your followed teams, budget, and travel constraints - with estimated ticket and travel costs, rendered on an interactive Leaflet map and exportable to PDF. |
+| 💬 **Fan Rooms** (`/watch`) | Per-match real-time chat rooms with live presence, custom polls, and floating emoji reactions. Viewing is open to everyone; sending messages and creating polls requires login. |
 | **Teams** (`/teams`) | All 48 nations grouped A-L with flags and team codes, plus a per-team view: squads, coaches, fixtures, venues, and a player to watch. |
 | **Standings** (`/standings`) | Live group tables for all 12 groups with real tiebreakers (points, GD, GF). Top 2 of each group plus the 8 best third-placed teams are highlighted, updating in real time as scores change. |
 | **AI tournament assistant** | A Groq-powered assistant that answers tournament questions grounded in the app's own data. |
@@ -48,7 +49,7 @@
 
 ---
 
-## Tech stack
+## 🛠️ Tech stack
 
 | Layer | Technology |
 |-------|------------|
@@ -64,7 +65,7 @@
 
 ---
 
-## Live URLs
+## 🌐 Live URLs
 
 | What | URL |
 |------|-----|
@@ -75,7 +76,7 @@
 
 ---
 
-## How it fits together
+## 🧩 How it fits together
 
 ```
 ┌──────────────────────────────┐         ┌────────────────────────────────────────┐
@@ -102,7 +103,7 @@ The frontend **never** talks to a football API directly. A single backend poller
 
 ---
 
-## Local setup
+## 💻 Local setup
 
 **Prerequisites:** Python 3.11+, Node.js 18+, and a local PostgreSQL 16 (or Docker - see [`docker-compose.yml`](./docker-compose.yml)).
 
@@ -144,7 +145,7 @@ python -m app.setup --skip-worldcup    # openfootball seed only (offline)
 
 ---
 
-## Environment variables
+## 🔑 Environment variables
 
 Copy `.env.example` to `.env` and fill in values. Backend settings live in `.env`; the frontend reads the `NEXT_PUBLIC_*` entries. Production values (Neon DB, DigitalOcean/Vercel URLs, `wss://`) belong in the hosting dashboards, not in the committed file.
 
@@ -170,7 +171,7 @@ Copy `.env.example` to `.env` and fill in values. Backend settings live in `.env
 
 ---
 
-## Deployment
+## 🚀 Deployment
 
 | Tier | Host |
 |------|------|
@@ -191,7 +192,7 @@ Maintenance:
 
 ---
 
-## Project structure
+## 📁 Project structure
 
 ```
 KickOff26/
@@ -223,7 +224,7 @@ KickOff26/
 
 ---
 
-## Data sources & references
+## 📊 Data sources & references
 
 KickOff26 uses **real data only**, with anything estimated or simulated clearly labeled in the UI.
 
@@ -235,17 +236,17 @@ KickOff26 uses **real data only**, with anything estimated or simulated clearly 
 | Head coaches | [Bolavip](https://bolavip.com/en/world-cup/2026-world-cup-coaches-all-48-managers-of-the-qualified-national-teams) + curated JSON | **Real** (curated) |
 | Group standings | Computed on the backend from live match state (tiebreakers: pts, GD, GF) | **Real**, derived |
 | Win probabilities | Self-built Poisson/Elo model in `app/models/win_probability.py` | **Model output** |
-| Ticket-price ranges (Travel Planner) | Published 2026 ticket-price reporting (sports/business press) | **Estimated** - not official quotes |
+| Ticket-price ranges (Travel Planner) | Publicly reported 2026 ticket-price information (price tiers/categories in sports/business press), mapped to match stage (see note below) | **Estimated** - not official quotes |
 | Travel distances/times (Travel Planner) | Great-circle estimates between host cities | **Estimated** |
 | Demo live match, cards, substitutions | `matchday_demo.py` simulation | **Demo/simulated** (only in `demo` mode) |
 | Official info & broadcasters | [Official 2026 tournament site](https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026) and broadcasters (see in-app **Resources**) | **Real** (official links) |
 | Country flags | [flag-icons](https://github.com/lipis/flag-icons) (MIT) | Asset |
 
-Always confirm ticket prices and availability through the official 2026 ticketing channel - in-app figures are estimates.
+**How ticket estimates are derived.** The Travel Planner's ticket-price ranges are built from publicly reported 2026 ticket-price information (the price tiers and categories described in sports and business press), mapped to match stage: group-stage matches are estimated toward the lower end of the range, host-nation and knockout matches higher, and the final at the top. These are clearly-labeled planning estimates, not official quotes - actual pricing is dynamic and demand-based, so always confirm prices and availability through the official 2026 ticketing channel.
 
 ---
 
-## WebSocket channels
+## 🔌 WebSocket channels
 
 Connect to `/ws` and subscribe with `{ "type": "subscribe", "channel": "<name>" }`:
 
@@ -261,7 +262,7 @@ The client also sends `ping` (gets `pong`) and `unsubscribe`. Subscribing to a `
 
 ---
 
-## Testing
+## 🧪 Testing
 
 ```powershell
 cd backend
@@ -279,7 +280,7 @@ npm run test:matchday
 
 ---
 
-## Principles
+## 📜 Principles
 
 - **Real data only.** Live scores, schedule, squads, coaches, and standings come from real sources; nothing is fabricated.
 - **Estimates clearly labeled.** Travel-planner ticket and travel costs are estimates (published price reporting and great-circle distances), and the simulated `demo` match is always labeled as such in the UI.
@@ -287,6 +288,24 @@ npm run test:matchday
 
 ---
 
-## License
+## 🤝 Contributing & contact
+
+KickOff26 is an actively-built project, and it is far from finished - new ideas are always on the table. If there is a feature you would love to see, a tweak that would make the app better, or something you think is missing, your input is genuinely welcome. Open an issue or reach out, and let's talk about it.
+
+- **Have an idea or feature request?** Suggestions and feature requests are welcome - if you would like to see something implemented or have improvements in mind, open an issue or get in touch.
+- **Want to contribute?** Pull requests are welcome. Feel free to fork the repo, build on it, and submit improvements - all contributions are appreciated.
+- **Questions or feedback?** Any comments, feedback, or questions are welcome too. Please do not hesitate to reach out.
+
+Find me here:
+
+- **GitHub:** [github.com/akashsv01](https://github.com/akashsv01)
+- **Portfolio:** [akashsvora.dev](https://akashsvora.dev)
+- **LinkedIn:** [linkedin.com/in/akash-s-vora](https://linkedin.com/in/akash-s-vora)
+
+Built with love ⚽💛 by **Akash Vora** - here's to a summer of unforgettable football. See you at the 2026 World Cup.
+
+---
+
+## 📄 License
 
 MIT
