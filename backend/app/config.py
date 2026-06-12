@@ -1,12 +1,17 @@
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.database_url import normalize_database_url
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Default to SQLite for local dev (no Docker/Postgres required)
-    database_url: str = "sqlite+aiosqlite:///./kickoff26.db"
+    database_url: str = Field(
+        default="sqlite+aiosqlite:///./kickoff26.db",
+        validation_alias=AliasChoices("DATABASE_URL", "database_url"),
+    )
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 10080
@@ -59,6 +64,13 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
     groq_max_tokens: int = 1024
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: object) -> str:
+        if value is None:
+            return "sqlite+aiosqlite:///./kickoff26.db"
+        return normalize_database_url(str(value).strip())
 
     @field_validator("groq_api_key", mode="before")
     @classmethod

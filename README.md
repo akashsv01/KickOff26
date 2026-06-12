@@ -17,6 +17,7 @@ An all-in-one fan companion for the **2026 World Cup** (48 teams across the Unit
   - [Option C - Docker](#option-c--docker)
 - [Database: why both SQLite and PostgreSQL?](#database-why-both-sqlite-and-postgresql)
 - [Environment variables](#environment-variables)
+- [Deployment / fresh database setup](#deployment--fresh-database-setup)
 - [Project structure](#project-structure)
 - [Live data architecture](#live-data-architecture)
 - [Data sources & references](#data-sources--references)
@@ -182,7 +183,7 @@ Copy `.env.example` to `.env` and adjust as needed. Backend settings live in `.e
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DATABASE_URL` | SQLAlchemy async connection string. Postgres (`postgresql+asyncpg://…`) or SQLite (`sqlite+aiosqlite:///./kickoff26.db`). | SQLite if unset |
+| `DATABASE_URL` | SQLAlchemy async connection string. Postgres (`postgresql+asyncpg://…` or Neon’s `postgresql://…?sslmode=require`) or SQLite (`sqlite+aiosqlite:///./kickoff26.db`). Read entirely from this env var — no hardcoded credentials. Neon SSL is enabled automatically. | SQLite if unset |
 | `JWT_SECRET` | Signing secret for auth tokens - set to a long random string. | `change-me` |
 | `JWT_ALGORITHM` / `JWT_EXPIRE_MINUTES` | Token algorithm and lifetime. | `HS256` / `10080` (7 days) |
 | `DATA_MODE` | `mock` = skip re-seed if DB already populated · `live` = force re-seed on startup. | `mock` (`live` in `.env`) |
@@ -194,10 +195,92 @@ Copy `.env.example` to `.env` and adjust as needed. Backend settings live in `.e
 | `FOOTBALL_DATA_API_KEY` | Optional one-shot score merge from football-data.org at startup. | empty |
 | `CACHE_TTL_TEAMS` / `_MATCHES` / `_STANDINGS` | TTLs (seconds) for the DB-backed `api_cache`. | `86400` / `300` / `600` |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins. | `http://localhost:3000,http://127.0.0.1:3000` |
+| `ZAFRONIX_API_KEY` | Squad rosters on Teams & Stats (optional at setup; required for live roster pages). | empty |
+| `GROQ_API_KEY` / `GROQ_MODEL` / `GROQ_MAX_TOKENS` | AI tournament assistant ([Groq](https://console.groq.com)). | empty / `llama-3.3-70b-versatile` / `1024` |
 | `NEXT_PUBLIC_API_URL` | Backend base URL used by the frontend. | `http://localhost:8000` |
 | `NEXT_PUBLIC_WS_URL` | WebSocket URL used by the frontend. | `ws://localhost:8000/ws` |
 
-Re-run `python scripts/init_db_data.py` any time to re-seed fixtures.
+Re-run `python -m app.setup` any time to re-apply schema migrations and re-sync tournament data (idempotent).
+
+---
+
+## Deployment / fresh database setup
+
+Use this flow when deploying to a **new empty database** (e.g. [Neon](https://neon.tech) Postgres). The backend reads **`DATABASE_URL` only** — switch between local Postgres, Neon, or SQLite by changing that one variable.
+
+### 1. Create the database
+
+In Neon, create a project and copy the **pooled** connection string (hostname contains `-pooler`). It looks like:
+
+```env
+DATABASE_URL=postgresql://user:pass@ep-xxxx-pooler.us-east-1.aws.neon.tech/neondb?sslmode=require
+```
+
+KickOff26 normalizes this to `postgresql+asyncpg://…` and enables TLS automatically (`sslmode=require` or any `*.neon.tech` host).
+
+### 2. Set required environment variables
+
+In your host’s env (Railway, Render, Fly, etc.) or `backend/.env`:
+
+| Variable | Required for production | Notes |
+|----------|-------------------------|-------|
+| `DATABASE_URL` | Yes | Neon pooled connection string |
+| `JWT_SECRET` | Yes | Long random string |
+| `LIVE_DATA_MODE` | Yes | Set to `api` for real tournament data |
+| `WORLDCUP_API_TOKEN` | Yes when `LIVE_DATA_MODE=api` | From `python scripts/get_worldcup_token.py` |
+| `DATA_MODE` | Recommended | Use `mock` after initial setup so restarts don’t force re-seed |
+| `ZAFRONIX_API_KEY` | Optional | Squad rosters; setup will prefetch if set |
+| `GROQ_API_KEY` | Optional | AI assistant |
+| `CORS_ORIGINS` | Yes | Your frontend URL(s), comma-separated |
+| `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` | Yes (frontend) | Public backend / WebSocket URLs |
+
+### 3. One-command bootstrap
+
+From `backend/`, with `DATABASE_URL` and API keys set:
+
+```powershell
+python -m app.setup
+```
+
+This single command is **idempotent** and safe to re-run. It:
+
+1. **Creates the full schema** on an empty database (all tables, columns, foreign keys, API ID fields).
+2. **Seeds fixtures** from the bundled openfootball schedule (teams + matches).
+3. **Syncs WorldCup API data** — stadiums, team `api_object_id` / `api_seq_id`, game links, groups cache.
+4. **Prefetches Zafronix squads** when `ZAFRONIX_API_KEY` is set (skip with `--skip-rosters`).
+
+Options:
+
+```powershell
+python -m app.setup --schema-only      # migrations only, no data sync
+python -m app.setup --skip-rosters     # skip Zafronix squad prefetch
+python -m app.setup --skip-worldcup    # openfootball seed only (offline)
+```
+
+Legacy alias: `python scripts/init_db_data.py` runs the same setup.
+
+### 4. What you get on a fresh production DB
+
+- **Populated:** teams, fixtures, stadiums, group mappings, API ID links, optional squads.
+- **Empty:** user accounts, bracket picks, watch-room messages, reactions, polls.
+- User-generated content accumulates only after real users sign up and use the app.
+
+### 5. Start the app
+
+```powershell
+cd backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Verify: `GET /health` should report `live_data_mode: api` and `worldcup_api_token_set: true`.
+
+### Maintenance
+
+| Task | Command |
+|------|---------|
+| Re-sync tournament reference data | `python scripts/sync_worldcup_api.py` or `POST /api/matchday/worldcup/sync` |
+| Clear watch-room test content only | `python scripts/clear_room_content.py --confirm` |
+| Check relational integrity | `python scripts/verify_db_integrity.py` |
 
 ---
 
@@ -357,7 +440,7 @@ npm run test:matchday
 | `PageNotFoundError` / stale build in Next.js | Stop dev/build, remove `frontend/.next`, then rebuild. |
 | Backend won't pick up `.env` changes | Restart Uvicorn - settings load at startup. Run it from `backend/`, not the repo root. |
 | `Address already in use` on :8000 | `scripts/dev-backend.ps1` detects this; free the port or stop the existing server. |
-| Want a clean database | Delete `backend/kickoff26.db` (SQLite) or drop/recreate the Postgres DB, then re-run `python scripts/init_db_data.py`. |
+| Want a clean database | Drop/recreate the DB (or use a new Neon branch), then run `python -m app.setup`. For watch rooms only: `python scripts/clear_room_content.py --confirm`. |
 | CORS errors in the browser | Ensure your frontend origin is in `CORS_ORIGINS` (localhost and 127.0.0.1 are treated as distinct). |
 
 ---

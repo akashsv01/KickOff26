@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.config import settings
+from app.database_url import database_url_label
 from app.db import async_session, init_db
 from app.services.room_reset import clear_room_user_content, count_preserved_records
 
@@ -29,12 +30,7 @@ async def main() -> int:
         print("Dry run only. Re-run with --confirm to clear room content.")
         return 0
 
-    db_label = (
-        settings.database_url.split("@")[-1]
-        if "@" in settings.database_url
-        else settings.database_url
-    )
-    print(f"Database: {db_label}")
+    print(f"Database: {database_url_label(settings.database_url)}")
 
     await init_db()
     async with async_session() as db:
