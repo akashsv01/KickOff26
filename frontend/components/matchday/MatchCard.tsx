@@ -7,6 +7,7 @@ import { formatKickoff, matchDetailHref, navigateToMatchDetail, type Match } fro
 import { useDisplayTimezone } from "@/lib/timezone";
 import { AnimatedScore } from "./AnimatedScore";
 import { glassCardClass, matchCardClick, matchCardKeyDown } from "./GlassCard";
+import { KickoffCountdown } from "./KickoffCountdown";
 import { LiveBadge } from "./LiveBadge";
 import { ProbBars } from "./ProbBars";
 
@@ -63,8 +64,11 @@ export function MatchCard({
             )}
           </div>
           {!compact && (
-            <div className="mt-1.5 text-xs tabular-nums text-app-faint">
-              {formatKickoff(m.kickoff_at, zone)}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs tabular-nums text-app-faint">
+              <span>{formatKickoff(m.kickoff_at, zone)}</span>
+              {!isLive && m.status !== "finished" && (
+                <KickoffCountdown kickoffIso={m.kickoff_at} />
+              )}
             </div>
           )}
           <div className="mt-4 flex items-center justify-between gap-2">

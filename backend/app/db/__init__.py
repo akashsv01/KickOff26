@@ -158,6 +158,70 @@ def _migrate_team_roster_table(sync_conn) -> None:
     )
 
 
+def _migrate_match_event_minute_nullable(sync_conn) -> None:
+    """Drop NOT NULL on match_events.minute so unknown goal minutes store NULL.
+
+    Postgres only - SQLite recreates the table from the (now nullable) model.
+    """
+    from sqlalchemy import inspect, text
+
+    if sync_conn.dialect.name != "postgresql":
+        return
+    insp = inspect(sync_conn)
+    if "match_events" not in insp.get_table_names():
+        return
+    for col in insp.get_columns("match_events"):
+        if col["name"] == "minute" and col.get("nullable") is False:
+            sync_conn.execute(text("ALTER TABLE match_events ALTER COLUMN minute DROP NOT NULL"))
+
+
+def _migrate_match_event_added_time(sync_conn) -> None:
+    """Add match_events.added_time and widen the dedup constraint to include it.
+
+    Works on SQLite (tests recreate from the model) and Postgres (local + Neon).
+    """
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    if "match_events" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("match_events")}
+    if "added_time" not in cols:
+        sync_conn.execute(text("ALTER TABLE match_events ADD COLUMN added_time INTEGER"))
+    # The dedup constraint must include added_time so e.g. a 45' and a 45+5' goal
+    # by the same player can coexist. Postgres only; SQLite rebuilds from the model.
+    if sync_conn.dialect.name == "postgresql":
+        sync_conn.execute(
+            text("ALTER TABLE match_events DROP CONSTRAINT IF EXISTS uq_match_event_dedup")
+        )
+        sync_conn.execute(
+            text(
+                "ALTER TABLE match_events ADD CONSTRAINT uq_match_event_dedup UNIQUE "
+                "(match_id, event_type, minute, added_time, team_side, player_name, detail)"
+            )
+        )
+
+
+def _migrate_match_scorers_reconciled(sync_conn) -> None:
+    """Add matches.scorers_reconciled (idempotent, dialect-aware default)."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    if "matches" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("matches")}
+    if "scorers_reconciled" in cols:
+        return
+    if sync_conn.dialect.name == "postgresql":
+        sync_conn.execute(
+            text("ALTER TABLE matches ADD COLUMN scorers_reconciled BOOLEAN NOT NULL DEFAULT FALSE")
+        )
+    else:
+        sync_conn.execute(
+            text("ALTER TABLE matches ADD COLUMN scorers_reconciled BOOLEAN NOT NULL DEFAULT 0")
+        )
+
+
 async def init_db() -> None:
     from app import models  # noqa: F401
 
@@ -168,3 +232,6 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_worldcup_api_columns)
         await conn.run_sync(_migrate_user_profile_columns)
         await conn.run_sync(_migrate_team_roster_table)
+        await conn.run_sync(_migrate_match_event_minute_nullable)
+        await conn.run_sync(_migrate_match_event_added_time)
+        await conn.run_sync(_migrate_match_scorers_reconciled)

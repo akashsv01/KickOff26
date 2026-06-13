@@ -28,7 +28,7 @@ import { useWebSocket } from "@/lib/websocket";
 export default function MatchDayPage() {
   const { token } = useAuth();
   const zone = useDisplayTimezone();
-  const { addFromAlert, addStatusNotification } = useMatchDayNotifications();
+  const { addStatusNotification } = useMatchDayNotifications();
   const [matches, setMatches] = useState<Match[]>([]);
   const [selectedDay, setSelectedDay] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -153,7 +153,8 @@ export default function MatchDayPage() {
       subscribe("matches:alerts", (data) => {
         const alert = data as MatchAlertPayload;
         if (!shouldShowAlert(alert)) return;
-        addFromAlert(alert);
+        // Notifications are collected app-wide by MatchDayNotificationsProvider;
+        // here we only surface transient toasts.
         const msg = String(alert.message ?? "");
         if (!msg) return;
         if (alert.type === "goal_alert") pushToast(msg, "goal");
@@ -180,7 +181,7 @@ export default function MatchDayPage() {
     });
 
     return () => unsubs.forEach((u) => u());
-  }, [connected, matches, subscribe, applyMatchUpdate, addFromAlert, pushToast]);
+  }, [connected, matches, subscribe, applyMatchUpdate, pushToast]);
 
   if (loading) {
     return (

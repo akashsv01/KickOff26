@@ -127,7 +127,8 @@ def parse_scorers_raw(raw: Any) -> list:
         return raw
     if isinstance(raw, str):
         s = _normalize_quotes(raw.strip())
-        if s.lower() in ("null", "", "[]", "none"):
+        # Empty / no-goals markers (incl. empty braces and whitespace-only braces).
+        if s.lower() in ("null", "", "[]", "{}", "none") or s.strip("{}[] \t") == "":
             return []
         try:
             parsed = json.loads(s)
@@ -160,30 +161,103 @@ def _normalize_quotes(text: str) -> str:
     )
 
 
-_SCORER_MINUTE = re.compile(r"^(?P<name>.+?)\s+(?P<minute>\d+)['\u2019]?\s*$")
+# Trailing minute token: "7'", "45'+5'", "90+2", with optional quotes/spaces.
+# Captures the base minute and optional stoppage-time addition.
+_MINUTE_TOKEN_RE = re.compile(
+    r"(?P<minute>\d{1,3})\s*['\u2019]?\s*(?:\+\s*(?P<added>\d{1,2})\s*['\u2019]?)?\s*$"
+)
+
+# A trustworthy scorer name: Latin script only (incl. common diacritics) plus
+# spaces and . ' - ( ) . The parens allow a kept annotation like "(OG)"/"(pen)".
+# Rejects Arabic/Persian/Cyrillic/CJK and other non-Latin text.
+_LATIN_NAME_RE = re.compile(
+    r"^[A-Za-z\u00c0-\u024f][A-Za-z\u00c0-\u024f0-9 .'\u2019()\-]*$"
+)
+
+# Trailing "(OG)" / "(pen)" style annotation, kept (Latin only) and re-appended.
+_ANNOTATION_RE = re.compile(r"\s*\(([^)]{1,12})\)\s*$")
+
+_MAX_MINUTE = 120
+_MAX_ADDED = 30
 
 
-def _parse_scorer_string(entry: str) -> tuple[str, int]:
-    text = _normalize_quotes(entry.strip())
-    match = _SCORER_MINUTE.match(text)
-    if match:
-        return match.group("name").strip(), int(match.group("minute"))
-    return text, 0
+def is_english_name(name: str) -> bool:
+    """True only when the name is non-empty Latin/English script."""
+    return bool(name) and bool(_LATIN_NAME_RE.match(name.strip()))
 
 
-def parse_scorer_events(game: dict) -> list[dict]:
-    out: list[dict] = []
-    for side, key in (("home", "home_scorers"), ("away", "away_scorers")):
-        for entry in parse_scorers_raw(_first(game, key, f"{side}Scorers")):
-            if isinstance(entry, dict):
-                player = _first(entry, "scorer", "name", "player") or "Unknown player"
-                minute = parse_int(_first(entry, "minute", "time", "timestamp", "elapsed")) or 0
+def split_name_minute(item: str) -> tuple[str, int | None, int | None]:
+    """Split a scorer token into (name, minute, added).
+
+    Handles stoppage time ("F. Balogun 45'+5'" -> 45, 5) and a trailing own-goal /
+    penalty annotation ("D. Bobadilla 7'(OG)" -> "D. Bobadilla (OG)", 7). A token
+    with no parseable minute returns (name, None, None).
+    """
+    text = _normalize_quotes(str(item)).strip().strip('"').strip()
+
+    note: str | None = None
+    annotation = _ANNOTATION_RE.search(text)
+    if annotation:
+        candidate = annotation.group(1).strip()
+        # Keep only short Latin annotations (e.g. OG, pen); drop anything else.
+        if re.fullmatch(r"[A-Za-z.\s]{1,12}", candidate):
+            note = candidate
+        text = text[: annotation.start()].strip()
+
+    match = _MINUTE_TOKEN_RE.search(text)
+    if not match:
+        name = text.strip(" -'\u2019").strip()
+        minute = added = None
+    else:
+        minute = int(match.group("minute"))
+        added = int(match.group("added")) if match.group("added") else None
+        name = text[: match.start()].strip().strip("-").strip()
+
+    if note and name:
+        name = f"{name} ({note})"
+    return name, minute, added
+
+
+def parse_scorers(raw: object, expected_count: int) -> list[dict] | None:
+    """Parse a scorers field into a trustworthy structured list, or None.
+
+    Returns a list of ``{player_name, minute, added_time, raw}`` only when the
+    payload is clean: English-only names, every minute in range, and the number
+    of parsed goals EQUALS ``expected_count`` (the side's score). Returns ``[]``
+    for a genuine zero-goal side. Returns ``None`` - meaning "not trustworthy
+    yet, keep the last known-good list" - for malformed, non-English, partial, or
+    count-mismatched payloads (e.g. the literal "null", braces-only, or a phantom
+    empty entry). Never raises - any unexpected shape degrades to ``None``.
+    """
+    try:
+        items = parse_scorers_raw(raw)
+        if expected_count <= 0:
+            # Score 0 is trustworthy only if the feed also reports no scorers.
+            return [] if not items else None
+        if not items or len(items) != expected_count:
+            return None
+        out: list[dict] = []
+        for item in items:
+            if isinstance(item, dict):
+                name = str(_first(item, "scorer", "name", "player") or "").strip()
+                minute = parse_int(_first(item, "minute", "time", "timestamp", "elapsed"))
+                added = parse_int(_first(item, "added_time", "extra", "stoppage"))
+                raw_item = str(_first(item, "scorer", "name", "player") or "")
             else:
-                player, minute = _parse_scorer_string(str(entry))
+                name, minute, added = split_name_minute(str(item))
+                raw_item = str(item)
+            if not is_english_name(name):
+                return None
+            if minute is None or not (0 <= minute <= _MAX_MINUTE):
+                return None
+            if added is not None and not (0 <= added <= _MAX_ADDED):
+                return None
             out.append(
-                {"type": "goal", "minute": minute, "team": side, "player": str(player).strip()}
+                {"player_name": name, "minute": minute, "added_time": added, "raw": raw_item}
             )
-    return out
+        return out
+    except Exception:
+        return None
 
 
 def parse_local_date(

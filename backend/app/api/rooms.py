@@ -105,10 +105,17 @@ async def get_room(room_id: int, db: AsyncSession = Depends(get_db)):
     return _room_response(room)
 
 
+# Chat is capped to the most recent events (chat + join/leave interleaved).
+ROOM_HISTORY_LIMIT = 20
+
+
 @router.get("/{room_id}/messages", response_model=list[MessageResponse])
 async def get_messages(room_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Message).where(Message.room_id == room_id).order_by(Message.created_at.desc()).limit(200)
+        select(Message)
+        .where(Message.room_id == room_id)
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(ROOM_HISTORY_LIMIT)
     )
     msgs = list(reversed(result.scalars().all()))
     return [MessageResponse.model_validate(m) for m in msgs]

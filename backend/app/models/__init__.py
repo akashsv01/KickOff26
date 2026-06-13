@@ -148,6 +148,9 @@ class Match(Base):
     win_prob_home: Mapped[float | None] = mapped_column(Float)
     win_prob_draw: Mapped[float | None] = mapped_column(Float)
     win_prob_away: Mapped[float | None] = mapped_column(Float)
+    # Set once when a finished match's scorers are reconciled against the final
+    # authoritative payload (so the one-time reconciliation does not repeat).
+    scorers_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -202,6 +205,7 @@ class MatchEvent(Base):
             "match_id",
             "event_type",
             "minute",
+            "added_time",
             "team_side",
             "player_name",
             "detail",
@@ -212,7 +216,10 @@ class MatchEvent(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     match_id: Mapped[int] = mapped_column(ForeignKey("matches.id", ondelete="CASCADE"), index=True)
     event_type: Mapped[str] = mapped_column(String(32))
-    minute: Mapped[int] = mapped_column(Integer, default=0)
+    # Nullable: a goal with no parseable minute stores NULL (renders no "0'" bubble).
+    minute: Mapped[int | None] = mapped_column(Integer)
+    # Stoppage-time addition for the minute (e.g. 45+5 -> minute=45, added_time=5).
+    added_time: Mapped[int | None] = mapped_column(Integer)
     team_side: Mapped[str] = mapped_column(String(8))
     player_name: Mapped[str] = mapped_column(String(120))
     detail: Mapped[str] = mapped_column(String(255), default="")

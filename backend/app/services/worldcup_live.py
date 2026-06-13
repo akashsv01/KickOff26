@@ -16,13 +16,12 @@ from sqlalchemy.orm import selectinload
 from app.models import Match, MatchStatus, Team
 from app.services.matchday import enrich_match_probs, match_to_dict
 from app.services.matchday_alerts import (
-    UNKNOWN_PLAYER,
     build_event_alert,
     broadcast_alert,
     emit_prob_momentum,
     emit_status_alert,
 )
-from app.services.match_events import fetch_events_for_match, insert_new_events
+from app.services.match_events import fetch_events_for_match, replace_side_goals
 from app.services.openfootball import OFFICIAL_EXTERNAL_PREFIX
 from app.services.worldcup_parse import (
     _first,
@@ -31,7 +30,7 @@ from app.services.worldcup_parse import (
     normalize_code,
     parse_elapsed_minute,
     parse_int,
-    parse_scorer_events,
+    parse_scorers,
 )
 from app.websocket.gateway import ws_manager
 
@@ -123,35 +122,34 @@ async def _broadcast_match_update(db: AsyncSession, match: Match, pre_probs: dic
     await ws_manager.broadcast("matches:live", payload)
 
 
-def _goal_events_from_score_delta(
+async def _apply_side_scorers(
+    db: AsyncSession,
     match: Match,
-    *,
-    old_home: int | None,
-    old_away: int | None,
-    parsed_goals: list[dict],
-) -> list[dict]:
-    """Timeline goal rows for score increases not already covered by parsed scorers."""
-    new_home = match.home_score or 0
-    new_away = match.away_score or 0
-    home_delta = max(0, new_home - (old_home or 0))
-    away_delta = max(0, new_away - (old_away or 0))
-    home_from_scorers = sum(
-        1 for ev in parsed_goals if ev.get("type") == "goal" and ev.get("team") == "home"
-    )
-    away_from_scorers = sum(
-        1 for ev in parsed_goals if ev.get("type") == "goal" and ev.get("team") == "away"
-    )
-    events: list[dict] = []
-    minute = match.minute or 0
-    for _ in range(home_delta - home_from_scorers):
-        events.append(
-            {"type": "goal", "minute": minute, "team": "home", "player": UNKNOWN_PLAYER}
-        )
-    for _ in range(away_delta - away_from_scorers):
-        events.append(
-            {"type": "goal", "minute": minute, "team": "away", "player": UNKNOWN_PLAYER}
-        )
-    return events
+    game: dict,
+    side: str,
+) -> tuple[bool, list[dict] | None]:
+    """Validate and replace one side's goals from its raw scorers field.
+
+    Returns ``(changed, parsed)``. ``parsed`` is the trustworthy structured scorer
+    list, or ``None`` when the payload is untrustworthy (malformed, non-English,
+    or count != score) - in which case the stored goals are left untouched so the
+    last known-good list survives until a clean payload arrives.
+    """
+    raw = _first(game, f"{side}_scorers", f"{side}Scorers")
+    score = match.home_score if side == "home" else match.away_score
+    parsed = parse_scorers(raw, score or 0)
+    if parsed is None:
+        if (score or 0) > 0:
+            logger.warning(
+                "Untrustworthy %s scorers for match %s (score=%s); keeping last good. raw=%r",
+                side,
+                match.id,
+                score,
+                raw,
+            )
+        return False, None
+    changed = await replace_side_goals(db, match.id, side, parsed)
+    return changed, parsed
 
 
 async def apply_game_snapshot(
@@ -219,16 +217,42 @@ async def apply_game_snapshot(
                 f"{match.away_score or 0} {match.away_team.code}",
             )
 
-    parsed_goals = parse_scorer_events(game)
-    score_delta_goals = _goal_events_from_score_delta(
-        match, old_home=old_home, old_away=old_away, parsed_goals=parsed_goals
-    )
-    timeline_goals = parsed_goals + score_delta_goals
-    inserted = await insert_new_events(db, match.id, timeline_goals) if timeline_goals else []
+    # Scorers: per-side validate + replace (never append). Untrusted payloads
+    # (malformed, non-English, count != score) keep the last known-good list.
+    home_changed, home_parsed = await _apply_side_scorers(db, match, game, "home")
+    away_changed, away_parsed = await _apply_side_scorers(db, match, game, "away")
+    goals_changed = home_changed or away_changed
+
+    # One-time finished reconciliation: when both sides parse cleanly at full time,
+    # the stored timeline now matches the authoritative final score - lock it.
+    if (
+        match.status == MatchStatus.FINISHED
+        and not match.scorers_reconciled
+        and home_parsed is not None
+        and away_parsed is not None
+    ):
+        match.scorers_reconciled = True
 
     if emit_alerts:
-        for ev in inserted:
-            if ev.get("type") == "goal":
+        # Goal alerts fire on a real score increase (reliable), with scorer detail
+        # when trustworthy and a neutral goal otherwise - never a phantom/0'.
+        for side, old_side_score, parsed in (
+            ("home", old_home, home_parsed),
+            ("away", old_away, away_parsed),
+        ):
+            new_side_score = match.home_score if side == "home" else match.away_score
+            delta = (new_side_score or 0) - (old_side_score or 0)
+            if delta <= 0:
+                continue
+            new_scorers = parsed[-delta:] if (parsed and len(parsed) >= delta) else [None] * delta
+            for sc in new_scorers:
+                ev = {
+                    "type": "goal",
+                    "team": side,
+                    "minute": sc["minute"] if sc else None,
+                    "added_time": sc["added_time"] if sc else None,
+                    "player": sc["player_name"] if sc else None,
+                }
                 await broadcast_alert(build_event_alert(match, ev), match.id)
 
     enriched = await enrich_match_probs(match, events=await fetch_events_for_match(db, match.id))
@@ -240,7 +264,7 @@ async def apply_game_snapshot(
         or (old_home or 0) != (match.home_score or 0)
         or (old_away or 0) != (match.away_score or 0)
         or old_minute != match.minute
-        or bool(inserted)
+        or goals_changed
     )
     if changed:
         await _broadcast_match_update(db, match, enriched["pre_probs"])

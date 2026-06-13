@@ -29,7 +29,7 @@ import {
 } from "@/lib/bracketGroups";
 import { applyKnockoutPick } from "@/lib/knockoutBracket";
 import { exportNodeToPdf, exportNodeToPng, formatExportError, logExportError } from "@/lib/exporters";
-import { api, API_URL } from "@/lib/api";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import {
   extractMostLikelyPath,
@@ -98,7 +98,6 @@ export default function BracketPage() {
   const [simResult, setSimResult] = useState<Record<string, unknown> | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [iterations, setIterations] = useState(1000);
-  const [championCode, setChampionCode] = useState("");
   const [simulating, setSimulating] = useState(false);
   const [simLiveMode, setSimLiveMode] = useState(false);
   const [liveChampionProbs, setLiveChampionProbs] = useState<Record<string, number> | null>(null);
@@ -114,7 +113,6 @@ export default function BracketPage() {
     const normalized = path ? { ...result, most_likely_path: path } : result;
     setSimResult(normalized as Record<string, unknown>);
     setLiveChampionProbs(null);
-    if (path?.champion) setChampionCode(path.champion);
   }, []);
 
   const pollSimJob = useCallback(
@@ -268,11 +266,6 @@ export default function BracketPage() {
   function pickKnockout(slotId: string, code: string) {
     setKnockoutPicks((prev) => {
       const next = applyKnockoutPick(prev, slotId, code);
-      if (slotId === "final-1") {
-        setChampionCode(code);
-      } else if (!next["final-1"]) {
-        setChampionCode("");
-      }
       return next;
     });
   }
@@ -343,7 +336,6 @@ export default function BracketPage() {
     try {
       const res = await api<{ remaining?: boolean }>("/bracket/picks/knockout", { method: "DELETE" });
       setKnockoutPicks({});
-      setChampionCode("");
       if (!res.remaining) setLastSaved(null);
       showToast("Knockout picks cleared");
     } catch (err) {
@@ -828,17 +820,6 @@ export default function BracketPage() {
           />
         </div>
       ) : null}
-
-      {championCode && (
-        <div className="md-glass p-5">
-          <h3 className="font-semibold text-champagne">Champion Poster - {championCode}</h3>
-          <img
-            src={`${API_URL}/api/bracket/poster/${championCode}`}
-            alt={`Predicted champion ${championCode}`}
-            className="mt-4 max-w-md rounded border border-champagne/30"
-          />
-        </div>
-      )}
     </div>
   );
 }

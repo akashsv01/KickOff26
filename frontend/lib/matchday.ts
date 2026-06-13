@@ -8,9 +8,11 @@ export type MatchTeam = {
 
 export type MatchEvent = {
   type: string;
-  minute: number;
+  minute: number | null; // null = unknown minute (renders no minute bubble)
+  added_time?: number | null; // stoppage-time addition (e.g. 45+5)
   team?: string;
-  player?: string;
+  player?: string | null; // "" / null = no named scorer (renders neutral label)
+  detail?: string;
 };
 
 export type ModelContext = {

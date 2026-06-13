@@ -623,6 +623,36 @@
   color: var(--app-text-faint);
 }
 
+/* Pre-kickoff countdown (within 24h) */
+.md-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  padding: 0.1rem 0.5rem;
+  border-radius: 9999px;
+  color: var(--app-gold-light);
+  border: 1px solid color-mix(in srgb, var(--app-gold) 35%, transparent);
+  background: color-mix(in srgb, var(--app-gold) 12%, transparent);
+}
+
+.md-countdown-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: var(--app-gold);
+  animation: md-countdown-pulse 1s steps(2, start) infinite;
+}
+
+@keyframes md-countdown-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
 /* Toast glass */
 .md-toast {
   border-radius: var(--md-radius-md);
@@ -670,6 +700,163 @@
 
 .md-timeline-item:hover {
   background: var(--md-surface-hover);
+}
+
+/* Vertical themed match timeline (central spine + alternating cards) */
+.md-tl {
+  position: relative;
+  margin-top: 1.25rem;
+  padding: 0.25rem 0;
+  list-style: none;
+}
+
+.md-tl::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--app-gold) 38%, transparent),
+    transparent
+  );
+}
+
+.md-tl-cap {
+  position: relative;
+  text-align: center;
+  margin: 0.4rem 0;
+}
+
+.md-tl-cap span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-gold-light);
+  background: color-mix(in srgb, var(--app-gold) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-gold) 35%, transparent);
+}
+
+.md-tl-row {
+  position: relative;
+  display: flex;
+  margin: 0.7rem 0;
+}
+
+.md-tl-row.md-tl-home {
+  justify-content: flex-start;
+}
+
+.md-tl-row.md-tl-away {
+  justify-content: flex-end;
+}
+
+.md-tl-card {
+  width: calc(50% - 1.75rem);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.75rem;
+}
+
+.md-tl-row.md-tl-home .md-tl-card {
+  border-left: 3px solid var(--md-prob-home);
+  text-align: left;
+}
+
+.md-tl-row.md-tl-away .md-tl-card {
+  border-right: 3px solid var(--md-prob-away);
+  text-align: right;
+}
+
+.md-tl-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--app-text-faint);
+}
+
+.md-tl-row.md-tl-away .md-tl-team {
+  flex-direction: row-reverse;
+}
+
+.md-tl-title {
+  margin-top: 0.2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--app-text);
+}
+
+.md-tl-player {
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  color: var(--app-text-muted);
+}
+
+.md-tl-bubble {
+  position: absolute;
+  left: 50%;
+  top: 0.3rem;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 1.5rem;
+  padding: 0 0.4rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #0b1020;
+  background: var(--app-gold);
+  box-shadow: 0 0 0 3px var(--app-bg);
+}
+
+.md-tl-bubble-empty {
+  min-width: 0.85rem;
+  width: 0.85rem;
+  height: 0.85rem;
+  padding: 0;
+  top: 0.7rem;
+}
+
+@media (max-width: 640px) {
+  .md-tl::before {
+    left: 1rem;
+  }
+  .md-tl-row.md-tl-home,
+  .md-tl-row.md-tl-away {
+    justify-content: flex-end;
+  }
+  .md-tl-card {
+    width: calc(100% - 2.5rem);
+  }
+  .md-tl-row.md-tl-away .md-tl-card {
+    border-right: none;
+    border-left: 3px solid var(--md-prob-away);
+    text-align: left;
+  }
+  .md-tl-row.md-tl-away .md-tl-team {
+    flex-direction: row;
+  }
+  .md-tl-bubble {
+    left: 1rem;
+  }
 }
 
 /* Reduced motion */

@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   MAX_VISIBLE_NOTIFICATIONS,
   NOTIFICATION_STORE_CAP,
@@ -9,6 +17,35 @@ import {
   type MatchAlertPayload,
   type MatchNotification,
 } from "@/lib/matchday";
+import { useWebSocket } from "@/lib/websocket";
+
+/** Per-type icon + label for the notification surfaces. */
+export function notificationMeta(type: MatchNotification["type"]): { icon: string; label: string } {
+  switch (type) {
+    case "goal":
+      return { icon: "⚽", label: "Goal" };
+    case "penalty":
+      return { icon: "⚽", label: "Penalty" };
+    case "yellow_card":
+      return { icon: "🟨", label: "Yellow card" };
+    case "red_card":
+      return { icon: "🟥", label: "Red card" };
+    case "substitution":
+      return { icon: "🔄", label: "Substitution" };
+    case "var":
+      return { icon: "📺", label: "VAR" };
+    case "match_start":
+      return { icon: "🟢", label: "Kickoff" };
+    case "match_halftime":
+      return { icon: "⏸", label: "Half time" };
+    case "match_end":
+      return { icon: "🏁", label: "Full time" };
+    case "momentum":
+      return { icon: "📈", label: "Momentum" };
+    default:
+      return { icon: "•", label: "Update" };
+  }
+}
 
 type MatchDayNotificationsContextValue = {
   notifications: MatchNotification[];
@@ -43,7 +80,13 @@ export function MatchDayNotificationsProvider({ children }: { children: ReactNod
   const [notifications, setNotifications] = useState<MatchNotification[]>([]);
 
   const push = useCallback((item: MatchNotification) => {
-    setNotifications((prev) => [item, ...prev].slice(0, NOTIFICATION_STORE_CAP));
+    setNotifications((prev) => {
+      // De-duplicate by content (an alert can arrive on more than one channel
+      // or be re-broadcast); keep only the most recent NOTIFICATION_STORE_CAP.
+      const key = `${item.type}|${item.matchId ?? ""}|${item.message}`;
+      if (prev.some((n) => `${n.type}|${n.matchId ?? ""}|${n.message}` === key)) return prev;
+      return [item, ...prev].slice(0, NOTIFICATION_STORE_CAP);
+    });
   }, []);
 
   const addFromAlert = useCallback(
@@ -85,6 +128,14 @@ export function MatchDayNotificationsProvider({ children }: { children: ReactNod
   const markAllRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }, []);
+
+  // Single app-wide feed: collect alerts regardless of which page is open, so
+  // the nav bell and the sidebar panel always reflect the live stream.
+  const { subscribe } = useWebSocket();
+  useEffect(() => {
+    const unsub = subscribe("matches:alerts", (data) => addFromAlert(data as MatchAlertPayload));
+    return unsub;
+  }, [subscribe, addFromAlert]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,

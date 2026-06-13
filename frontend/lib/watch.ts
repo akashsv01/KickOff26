@@ -50,8 +50,12 @@ export type ReactionBurst = {
 
 export const REACTION_EMOJIS = ["⚽", "🔥", "😱", "👏", "😢"] as const;
 
-/** Max chat messages kept in room state (matches API fetch limit). */
-export const WATCH_MESSAGE_CAP = 200;
+/**
+ * Max chat events kept in room state - chat messages AND join/leave notices
+ * interleaved. Matches the API history limit (ROOM_HISTORY_LIMIT) so the in-memory
+ * list and the fetched history agree on "last 20".
+ */
+export const WATCH_MESSAGE_CAP = 20;
 
 export const OFFICIAL_TOURNAMENT_LINKS = {
   tournament: "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026",

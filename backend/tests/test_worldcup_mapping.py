@@ -11,10 +11,12 @@ from app.services.worldcup_parse import (
     api_object_id,
     api_seq_id,
     derive_status,
+    is_english_name,
     parse_finished,
     parse_int,
     parse_local_date,
-    parse_scorer_events,
+    parse_scorers,
+    split_name_minute,
 )
 from app.services.worldcup_sync import upsert_games, upsert_stadiums, upsert_teams
 
@@ -87,23 +89,76 @@ class TestWorldcupParse:
         assert parse_int("0") == 0
         assert parse_int("null") is None
 
-    def test_scorers_null_string(self):
-        assert parse_scorer_events(SAMPLE_GAME) == []
+    def test_scorers_zero_goals_markers(self):
+        # "null"/empty/braces with score 0 -> trustworthy zero goals (never phantom).
+        assert parse_scorers("null", 0) == []
+        assert parse_scorers("{}", 0) == []
+        assert parse_scorers("{ }", 0) == []
+        assert parse_scorers("", 0) == []
 
-    def test_scorers_api_curly_brace_format(self):
-        """Real API returns braced comma-separated strings with smart quotes."""
-        raw = "{\u201cJ. Qui\u00f1ones 9'\u201d,\u201cR. Jim\u00e9nez 67'\u201d}"
-        game = {
-            **SAMPLE_GAME,
-            "home_score": "2",
-            "away_score": "0",
-            "home_scorers": raw,
-            "away_scorers": "null",
-        }
-        events = parse_scorer_events(game)
-        assert len(events) == 2
-        assert events[0] == {"type": "goal", "minute": 9, "team": "home", "player": "J. Quiñones"}
-        assert events[1] == {"type": "goal", "minute": 67, "team": "home", "player": "R. Jiménez"}
+    def test_real_usa_paraguay_payload(self):
+        """The exact observed live payload parses cleanly, incl. 45'+5' stoppage."""
+        raw = "{\"D. Bobadilla 7'\",\"F. Balogun 31'\",\"F. Balogun 45'+5'\"}"
+        result = parse_scorers(raw, 3)
+        assert result == [
+            {"player_name": "D. Bobadilla", "minute": 7, "added_time": None, "raw": "D. Bobadilla 7'"},
+            {"player_name": "F. Balogun", "minute": 31, "added_time": None, "raw": "F. Balogun 31'"},
+            {"player_name": "F. Balogun", "minute": 45, "added_time": 5, "raw": "F. Balogun 45'+5'"},
+        ]
+
+    def test_split_name_minute_stoppage(self):
+        assert split_name_minute("F. Balogun 45'+5'") == ("F. Balogun", 45, 5)
+        assert split_name_minute("Player 90'+2'") == ("Player", 90, 2)
+        assert split_name_minute("I.B. Hwang 67'") == ("I.B. Hwang", 67, None)
+
+    def test_own_goal_and_penalty_annotations(self):
+        # Trailing (OG)/(pen) annotations are kept and the minute still parses.
+        assert split_name_minute("D. Bobadilla 7'(OG)") == ("D. Bobadilla (OG)", 7, None)
+        assert split_name_minute("G. Reyna 90'+8'") == ("G. Reyna", 90, 8)
+        assert split_name_minute("L. Messi 80'(pen)") == ("L. Messi (pen)", 80, None)
+
+    def test_live_payload_with_og_and_stoppage(self):
+        """The evolved live USA-PAR payload (own goal + 90+8 stoppage) parses clean."""
+        raw = "{\"D. Bobadilla 7'(OG)\",\"F. Balogun 31'\",\"F. Balogun 45'+5'\",\"G. Reyna 90'+8'\"}"
+        result = parse_scorers(raw, 4)
+        assert result == [
+            {"player_name": "D. Bobadilla (OG)", "minute": 7, "added_time": None, "raw": "D. Bobadilla 7'(OG)"},
+            {"player_name": "F. Balogun", "minute": 31, "added_time": None, "raw": "F. Balogun 31'"},
+            {"player_name": "F. Balogun", "minute": 45, "added_time": 5, "raw": "F. Balogun 45'+5'"},
+            {"player_name": "G. Reyna", "minute": 90, "added_time": 8, "raw": "G. Reyna 90'+8'"},
+        ]
+
+    def test_count_mismatch_returns_none(self):
+        # Score says 3 but only one scorer parsed -> not trustworthy yet.
+        assert parse_scorers("{\"A. Smith 10'\"}", 3) is None
+        # Score 1 but feed gives "null" -> not trustworthy (goal exists, no detail).
+        assert parse_scorers("null", 1) is None
+
+    def test_phantom_empty_entry_is_not_a_goal(self):
+        # Whitespace-only braces: zero goals when score 0, untrusted when score>0.
+        assert parse_scorers("{ }", 0) == []
+        assert parse_scorers("{ }", 1) is None
+
+    def test_non_english_rejected(self):
+        # Persian transliteration -> untrusted; caller keeps last known-good list.
+        assert parse_scorers("{“فلورین 7'”}", 1) is None
+        assert is_english_name("F. Balogun") is True
+        assert is_english_name("J. Quiñones") is True  # Latin diacritics allowed
+        assert is_english_name("فلورین") is False
+
+    def test_smart_quotes_and_diacritics(self):
+        raw = "{“J. Quiñones 9'”,“R. Jiménez 67'”}"
+        result = parse_scorers(raw, 2)
+        assert result is not None
+        assert [r["player_name"] for r in result] == ["J. Quiñones", "R. Jiménez"]
+        assert [r["minute"] for r in result] == [9, 67]
+
+    def test_dict_format_scorers(self):
+        # API-Football style array-of-dicts is also accepted.
+        result = parse_scorers('[{"scorer":"Smith","minute":"23"}]', 1)
+        assert result == [
+            {"player_name": "Smith", "minute": 23, "added_time": None, "raw": "Smith"}
+        ]
 
     def test_local_date_parsing(self):
         kickoff, cal = parse_local_date("06/13/2026 21:00", city_en="Vancouver")

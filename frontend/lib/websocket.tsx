@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { getToken } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
@@ -49,7 +50,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
 
     function connect() {
-      const url = token ? `${WS_URL}?token=${token}` : WS_URL;
+      // Prefer the freshly stored token so the very first connection is
+      // authenticated (the reactive `token` state hydrates a tick later, which
+      // would otherwise connect as "guest" and emit a bogus "guest joined").
+      const authToken = token ?? getToken();
+      const url = authToken ? `${WS_URL}?token=${authToken}` : WS_URL;
       const ws = new WebSocket(url);
       wsRef.current = ws;
 

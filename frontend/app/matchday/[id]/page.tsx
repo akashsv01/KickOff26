@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FootballLoader } from "@/components/FootballLoader";
 import { AnimatedScore } from "@/components/matchday/AnimatedScore";
 import { LiveBadge } from "@/components/matchday/LiveBadge";
+import { MatchTimeline } from "@/components/matchday/MatchTimeline";
 import { ProbBars } from "@/components/matchday/ProbBars";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -106,7 +107,10 @@ export default function MatchDetailPage() {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
   const ctx = match.model_context;
-  const events = [...(match.events ?? [])].sort((a, b) => a.minute - b.minute);
+  const events = [...(match.events ?? [])].sort(
+    (a, b) =>
+      (a.minute ?? 9999) - (b.minute ?? 9999) || (a.added_time ?? 0) - (b.added_time ?? 0),
+  );
 
   return (
     <div className="matchday-shell space-y-6">
@@ -120,8 +124,12 @@ export default function MatchDetailPage() {
       <div className={`md-glass p-6 md-animate-in ${isLive ? "md-glass-live md-glass-hero" : ""}`}>
         <div className="md-glass-content">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm text-app-muted">
-              {match.city}, {match.country} · {match.venue}
+            <span className="inline-flex items-center gap-1.5 text-sm text-app-muted">
+              <PinIcon className="h-4 w-4 shrink-0 text-champagne" />
+              <span>
+                {match.city}
+                {match.venue ? `, ${match.venue}` : ""}
+              </span>
             </span>
             {isLive ? (
               <LiveBadge minute={match.minute} />
@@ -129,8 +137,12 @@ export default function MatchDetailPage() {
               <span className="md-status-pill">{match.status.replace("_", " ")}</span>
             )}
           </div>
-          <p className="mt-2 text-xs tabular-nums text-app-faint">
-            Group {match.group_letter} · {formatKickoff(match.kickoff_at, zone)}
+          <p className="mt-2 inline-flex items-center gap-1.5 text-xs tabular-nums text-app-faint">
+            <CalendarClockIcon className="h-4 w-4 shrink-0 text-champagne" />
+            <span>
+              {match.group_letter ? `Group ${match.group_letter} · ` : ""}
+              {formatKickoff(match.kickoff_at, zone)}
+            </span>
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-8">
@@ -138,12 +150,6 @@ export default function MatchDetailPage() {
             <span className="text-3xl font-light tracking-widest text-app-faint">-</span>
             <TeamBlock team={match.away_team} score={match.away_score} align="right" />
           </div>
-
-          {ctx && (
-            <p className="mt-5 text-center text-sm leading-relaxed text-champagne/85">
-              {ctx.summary}
-            </p>
-          )}
 
           {match.win_prob_home != null && match.win_prob_draw != null && match.win_prob_away != null && (
             <div className="mx-auto mt-8 max-w-md">
@@ -182,16 +188,7 @@ export default function MatchDetailPage() {
         <div className="md-glass p-6 md-animate-in" style={{ animationDelay: "60ms" }}>
           <div className="md-glass-content">
             <h2 className="md-section-title text-champagne">Match timeline</h2>
-            <ol className="mt-4 space-y-0">
-              {events.map((e, i) => (
-                <li key={i} className="md-timeline-item flex gap-3 text-sm">
-                  <span className="w-10 shrink-0 font-mono tabular-nums text-app-faint">{e.minute}&apos;</span>
-                  <span className="text-app-secondary">
-                    {eventLabel(e)} {e.player ? `- ${e.player}` : ""}
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <MatchTimeline match={match} events={events} isFinished={isFinished} />
           </div>
         </div>
       )}
@@ -281,22 +278,22 @@ function LineupCard({
   );
 }
 
-function eventLabel(e: { type: string; team?: string; detail?: string }) {
-  const side = e.team === "home" ? "Home" : e.team === "away" ? "Away" : "";
-  switch (e.type) {
-    case "goal":
-      return `⚽ Goal (${side})`;
-    case "red_card":
-      return `🟥 Red card (${side})`;
-    case "yellow_card":
-      return `🟨 Yellow card (${side})`;
-    case "substitution":
-      return `🔄 Substitution (${side})`;
-    case "penalty":
-      return e.detail === "missed" ? `❌ Penalty missed (${side})` : `⚽ Penalty goal (${side})`;
-    case "var":
-      return `📺 VAR${e.detail ? `: ${e.detail}` : ""} (${side})`;
-    default:
-      return e.type;
-  }
+function PinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function CalendarClockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h6" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+      <circle cx="17.5" cy="16.5" r="4.5" />
+      <path d="M17.5 14.8v1.7l1.2 1" />
+    </svg>
+  );
 }

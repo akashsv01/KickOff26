@@ -9,6 +9,7 @@ import {
 } from "@/lib/matchday";
 import {
   MAX_VISIBLE_NOTIFICATIONS,
+  notificationMeta,
   relativeTime,
   useMatchDayNotificationsOptional,
 } from "@/lib/matchday-notifications";
@@ -70,23 +71,34 @@ export function NotificationBell() {
               <p className="py-4 text-center text-sm text-app-faint">No alerts yet</p>
             ) : (
               <ul className="max-h-64 space-y-1 overflow-y-auto">
-                {visible.map((n) => (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      className="w-full rounded-lg px-2 py-2 text-left text-sm transition hover-surface"
-                      onClick={() => {
-                        setOpen(false);
-                        if (n.matchId) navigateToMatchDetail(router.push, n.matchId);
-                      }}
-                    >
-                      <span className="block text-app-secondary">{n.message}</span>
-                      <span className="mt-0.5 block text-[10px] tabular-nums text-app-faint">
-                        {relativeTime(n.at)}
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {visible.map((n) => {
+                  const meta = notificationMeta(n.type);
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-sm transition hover-surface"
+                        onClick={() => {
+                          setOpen(false);
+                          if (n.matchId) navigateToMatchDetail(router.push, n.matchId);
+                        }}
+                      >
+                        <span className="shrink-0 text-base leading-5" aria-hidden>
+                          {meta.icon}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[10px] font-semibold uppercase tracking-wide text-app-faint">
+                            {meta.label}
+                          </span>
+                          <span className="block text-app-secondary">{n.message}</span>
+                          <span className="mt-0.5 block text-[10px] tabular-nums text-app-faint">
+                            {relativeTime(n.at)}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -127,28 +139,36 @@ export function NotificationsPanel() {
             {visible.length === 0 ? (
               <li className="text-xs text-app-faint">No meaningful alerts yet.</li>
             ) : (
-              visible.map((n) => (
-                <li key={n.id}>
-                  {n.matchId ? (
-                    <Link
-                      href={matchDetailHref(n.matchId)}
-                      className="block rounded-md px-1 py-1.5 text-xs text-app-secondary transition hover-surface hover:text-app"
-                    >
-                      <span>{n.message}</span>
+              visible.map((n) => {
+                const meta = notificationMeta(n.type);
+                const body = (
+                  <span className="flex items-start gap-2">
+                    <span className="shrink-0 text-sm leading-4" aria-hidden>
+                      {meta.icon}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block">{n.message}</span>
                       <span className="mt-0.5 block tabular-nums text-app-faint">
                         {relativeTime(n.at)}
                       </span>
-                    </Link>
-                  ) : (
-                    <div className="px-1 py-1.5 text-xs text-app-secondary">
-                      <span>{n.message}</span>
-                      <span className="mt-0.5 block tabular-nums text-app-faint">
-                        {relativeTime(n.at)}
-                      </span>
-                    </div>
-                  )}
-                </li>
-              ))
+                    </span>
+                  </span>
+                );
+                return (
+                  <li key={n.id}>
+                    {n.matchId ? (
+                      <Link
+                        href={matchDetailHref(n.matchId)}
+                        className="block rounded-md px-1 py-1.5 text-xs text-app-secondary transition hover-surface hover:text-app"
+                      >
+                        {body}
+                      </Link>
+                    ) : (
+                      <div className="px-1 py-1.5 text-xs text-app-secondary">{body}</div>
+                    )}
+                  </li>
+                );
+              })
             )}
           </ul>
         )}

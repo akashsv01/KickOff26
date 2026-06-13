@@ -20,6 +20,26 @@ def normalize_player_name(raw: str | None) -> str:
         return UNKNOWN_PLAYER
     return str(raw).strip()
 
+
+def clean_player_name(raw: str | None) -> str:
+    """Stripped player name, or "" when genuinely absent.
+
+    Unlike normalize_player_name this never substitutes "Unknown player" - an
+    empty result is rendered neutrally (e.g. "Mexico goal") so live goals with
+    no named scorer are honest instead of showing a fake player.
+    """
+    if raw is None:
+        return ""
+    text = str(raw).strip()
+    return "" if text.lower() in ("", "unknown player", "null", "none") else text
+
+
+def team_goal_label(match: Match, team_side: str | None) -> str:
+    """Neutral label for a goal with no named scorer: "<Team> goal"."""
+    team = match.home_team if team_side == "home" else match.away_team
+    name = getattr(team, "name", None) or getattr(team, "code", None) or "Team"
+    return f"{name} goal"
+
 if TYPE_CHECKING:
     pass
 
@@ -159,35 +179,42 @@ def parse_api_events(
     return out
 
 
+def _minute_suffix(minute, added=None) -> str:
+    """' 67'' or ' 45+5'' when a real minute exists, otherwise '' (never ' 0'')."""
+    if not isinstance(minute, int):
+        return ""
+    if isinstance(added, int) and added > 0:
+        return f" {minute}+{added}'"
+    return f" {minute}'"
+
+
 def format_event_message(match: Match, event: dict) -> str:
     team_label = match.home_team.code if event.get("team") == "home" else match.away_team.code
-    minute = event.get("minute", 0)
-    player = event.get("player") or UNKNOWN_PLAYER
+    minute_sfx = _minute_suffix(event.get("minute"), event.get("added_time"))
+    player = clean_player_name(event.get("player"))
+    player_sfx = f" ({player})" if player else ""
     ev_type = event["type"]
     detail = event.get("detail") or ""
 
     if ev_type == "goal":
-        return (
-            f"GOAL! {team_label} ({player}) - "
-            f"{match.home_score}-{match.away_score} {minute}'"
-        )
+        return f"GOAL! {team_label}{player_sfx} - {match.home_score}-{match.away_score}{minute_sfx}"
     if ev_type == "yellow_card":
-        return f"YELLOW CARD - {team_label} ({player}) {minute}'"
+        return f"YELLOW CARD - {team_label}{player_sfx}{minute_sfx}"
     if ev_type == "red_card":
-        return f"RED CARD - {team_label} ({player}) {minute}'"
+        return f"RED CARD - {team_label}{player_sfx}{minute_sfx}"
     if ev_type == "substitution":
         sub_detail = f" ({detail})" if detail else ""
-        return f"SUBSTITUTION - {team_label}: {player}{sub_detail} {minute}'"
+        return f"SUBSTITUTION - {team_label}: {player or 'substitution'}{sub_detail}{minute_sfx}"
     if ev_type == "penalty":
         if detail == "missed":
-            return f"PENALTY MISSED - {team_label} ({player}) {minute}'"
+            return f"PENALTY MISSED - {team_label}{player_sfx}{minute_sfx}"
         return (
-            f"PENALTY GOAL - {team_label} ({player}) - "
-            f"{match.home_score}-{match.away_score} {minute}'"
+            f"PENALTY GOAL - {team_label}{player_sfx} - "
+            f"{match.home_score}-{match.away_score}{minute_sfx}"
         )
     if ev_type == "var":
-        return f"VAR - {detail} ({team_label}) {minute}'"
-    return f"{ev_type} - {team_label} {minute}'"
+        return f"VAR - {detail} ({team_label}){minute_sfx}"
+    return f"{ev_type} - {team_label}{minute_sfx}".strip()
 
 
 def build_event_alert(match: Match, event: dict) -> dict:
@@ -198,6 +225,7 @@ def build_event_alert(match: Match, event: dict) -> dict:
         "message": format_event_message(match, event),
         "team": event.get("team"),
         "minute": event.get("minute"),
+        "added_time": event.get("added_time"),
         "event_type": event["type"],
     }
 
