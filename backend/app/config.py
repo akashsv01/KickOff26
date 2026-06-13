@@ -67,6 +67,20 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.3-70b-versatile"
     groq_max_tokens: int = 1024
 
+    # Transactional email (Resend - https://resend.com)
+    resend_api_key: str = ""
+    # Verified sender once the domain is set up in Resend (hello@kickoff2026.tech);
+    # until then Resend's onboarding@resend.dev sandbox sender works for testing.
+    from_email: str = "KickOff26 <onboarding@resend.dev>"
+    # Public app URL used for links/branding in emails.
+    app_base_url: str = "https://kickoff2026.tech"
+    # Public URL of the KickOff26 logo/trophy icon shown in email headers.
+    # Defaults to the app's PWA icon; override if hosted elsewhere.
+    email_logo_url: str = ""
+    # Guards the in-process APScheduler digest loop (option a). Leave off when a
+    # standalone scheduled job runs `python -m app.jobs.daily_digest` (option b).
+    enable_digest_scheduler: bool = False
+
     @field_validator("database_url", mode="before")
     @classmethod
     def normalize_database_url(cls, value: object) -> str:
@@ -84,6 +98,10 @@ class Settings(BaseSettings):
     @property
     def has_groq_key(self) -> bool:
         return bool(self.groq_api_key.strip())
+
+    @property
+    def has_resend_key(self) -> bool:
+        return bool(self.resend_api_key.strip())
 
     @property
     def is_mock(self) -> bool:

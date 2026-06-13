@@ -1,8 +1,9 @@
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -45,6 +46,12 @@ class User(Base):
     daily_digest_opt_in: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
     )
+    # Last LOCAL date a daily digest was sent (prevents duplicate sends per day).
+    last_digest_sent_date: Mapped[date | None] = mapped_column(Date)
+    # Forgot-password: only the SHA-256 hash of the reset token is stored (never raw),
+    # single-use, with a short expiry.
+    password_reset_token_hash: Mapped[str | None] = mapped_column(String(64), index=True)
+    password_reset_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     favorite_team: Mapped["Team | None"] = relationship(foreign_keys=[favorite_team_id])

@@ -73,6 +73,7 @@ export type RegisterProfile = {
   country_region?: string;
   preferred_language?: string;
   timezone?: string;
+  daily_digest_opt_in?: boolean;
   followed_team_ids?: number[];
 };
 

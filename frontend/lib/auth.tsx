@@ -96,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // may also pass one explicitly via profile.timezone.
       const timezone = profile.timezone ?? detectBrowserTimezone();
       if (timezone) body.timezone = timezone;
+      body.daily_digest_opt_in = !!profile.daily_digest_opt_in;
       if (profile.followed_team_ids?.length) {
         body.followed_team_ids = profile.followed_team_ids;
       }

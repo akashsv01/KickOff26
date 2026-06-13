@@ -21,11 +21,12 @@ logger = logging.getLogger(__name__)
 _live_task: asyncio.Task | None = None
 _lineup_task: asyncio.Task | None = None
 _roster_task: asyncio.Task | None = None
+_digest_scheduler = None  # APScheduler AsyncIOScheduler when ENABLE_DIGEST_SCHEDULER=true
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _live_task, _lineup_task, _roster_task
+    global _live_task, _lineup_task, _roster_task, _digest_scheduler
     await init_db()
     async with async_session() as db:
         ingestion = DataIngestionService(db)
@@ -57,12 +58,36 @@ async def lifespan(app: FastAPI):
             # app serves from DB/file, no live polling (free tier 250 req/day).
             _roster_task = asyncio.create_task(run_roster_prefetch_loop())
 
+        # Option (a): in-process digest scheduler. Off by default; use the standalone
+        # `python -m app.jobs.daily_digest` scheduled job (option b) in production.
+        if settings.enable_digest_scheduler:
+            try:
+                from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+                from app.services.digest_service import send_due_digests
+
+                _digest_scheduler = AsyncIOScheduler(timezone="UTC")
+                _digest_scheduler.add_job(
+                    send_due_digests,
+                    "interval",
+                    minutes=15,
+                    id="daily_digest",
+                    coalesce=True,
+                    max_instances=1,
+                )
+                _digest_scheduler.start()
+                logger.info("Daily-digest scheduler started (every 15 min)")
+            except Exception as exc:  # noqa: BLE001 - scheduler must not crash startup
+                logger.exception("Could not start digest scheduler: %s", exc)
+
     yield
 
     from app.services.sim_job_manager import sim_job_manager
     from app.services.worldcup_api import close_shared_http_client
 
     sim_job_manager.shutdown()
+    if _digest_scheduler is not None:
+        _digest_scheduler.shutdown(wait=False)
     await close_shared_http_client()
     for task in (_live_task, _lineup_task, _roster_task):
         if task:

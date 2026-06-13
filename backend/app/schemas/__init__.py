@@ -15,6 +15,7 @@ class UserCreate(BaseModel):
     country_region: str | None = Field(default=None, max_length=64)
     preferred_language: str | None = Field(default=None, max_length=16)
     timezone: str | None = Field(default=None, max_length=64)
+    daily_digest_opt_in: bool = False
     followed_team_ids: list[int] = Field(default_factory=list, max_length=8)
 
     @field_validator("country_region")
@@ -52,6 +53,15 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1)
+    new_password: str = Field(min_length=6)
 
 
 class UserResponse(BaseModel):

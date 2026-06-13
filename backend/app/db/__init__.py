@@ -112,6 +112,7 @@ def _migrate_user_profile_columns(sync_conn) -> None:
         ("preferred_language", "VARCHAR(16)"),
         ("timezone", "VARCHAR(64)"),
         ("daily_digest_opt_in", "BOOLEAN DEFAULT FALSE NOT NULL"),
+        ("last_digest_sent_date", "DATE"),
     ):
         if col not in cols:
             sync_conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {ddl}"))
@@ -222,6 +223,25 @@ def _migrate_match_scorers_reconciled(sync_conn) -> None:
         )
 
 
+def _migrate_password_reset_columns(sync_conn) -> None:
+    """Add users.password_reset_token_hash + password_reset_expires_at (idempotent)."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    if "users" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("users")}
+    if "password_reset_token_hash" not in cols:
+        sync_conn.execute(text("ALTER TABLE users ADD COLUMN password_reset_token_hash VARCHAR(64)"))
+    if "password_reset_expires_at" not in cols:
+        ddl = (
+            "TIMESTAMP WITH TIME ZONE" if sync_conn.dialect.name == "postgresql" else "DATETIME"
+        )
+        sync_conn.execute(
+            text(f"ALTER TABLE users ADD COLUMN password_reset_expires_at {ddl}")
+        )
+
+
 async def init_db() -> None:
     from app import models  # noqa: F401
 
@@ -235,3 +255,4 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_match_event_minute_nullable)
         await conn.run_sync(_migrate_match_event_added_time)
         await conn.run_sync(_migrate_match_scorers_reconciled)
+        await conn.run_sync(_migrate_password_reset_columns)

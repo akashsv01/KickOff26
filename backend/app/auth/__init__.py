@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
@@ -13,6 +15,17 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
+
+
+def hash_reset_token(raw_token: str) -> str:
+    """SHA-256 of a high-entropy reset token (stored + looked up by hash, never raw)."""
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def generate_reset_token() -> tuple[str, str]:
+    """Return (raw_token, token_hash). Email the raw token; store only the hash."""
+    raw = secrets.token_urlsafe(32)
+    return raw, hash_reset_token(raw)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -58,6 +71,7 @@ async def create_user(
     country_region: str | None = None,
     preferred_language: str | None = None,
     timezone: str | None = None,
+    daily_digest_opt_in: bool = False,
     followed_team_ids: list[int] | None = None,
 ) -> User:
     user = User(
@@ -69,6 +83,7 @@ async def create_user(
         country_region=country_region,
         preferred_language=preferred_language,
         timezone=timezone,
+        daily_digest_opt_in=daily_digest_opt_in,
     )
     db.add(user)
     await db.flush()

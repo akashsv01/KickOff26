@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SignupProfileFields } from "@/components/auth/SignupProfileFields";
 import { FootballLoader } from "@/components/FootballLoader";
@@ -27,10 +28,12 @@ function AuthForm() {
   const [countryRegion, setCountryRegion] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("");
   const [followedTeamIds, setFollowedTeamIds] = useState<number[]>([]);
+  const [dailyDigest, setDailyDigest] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const returnTo = searchParams.get("next") || "/matchday";
+  const resetDone = searchParams.get("reset") === "success";
 
   useEffect(() => {
     if (mode !== "register") return;
@@ -86,6 +89,7 @@ function AuthForm() {
           favorite_team_id: favoriteTeamId,
           country_region: countryRegion || undefined,
           preferred_language: preferredLanguage || undefined,
+          daily_digest_opt_in: dailyDigest,
           followed_team_ids: extraFollows.length ? extraFollows : undefined,
         });
       }
@@ -148,6 +152,12 @@ function AuthForm() {
           ? "Sign in to save brackets, follow nations, and join fan rooms."
           : "Create your fan profile - pick your nation and teams to follow."}
       </p>
+
+      {resetDone && (
+        <p className="mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+          Password updated. Sign in with your new password.
+        </p>
+      )}
 
       <div className="auth-mode-toggle mt-5">
         <button
@@ -218,6 +228,14 @@ function AuthForm() {
           />
         </div>
 
+        {mode === "login" && (
+          <div className="-mt-1 text-right">
+            <Link href="/forgot-password" className="text-sm text-champagne hover:underline">
+              Forgot password?
+            </Link>
+          </div>
+        )}
+
         {mode === "register" && (
           teamsLoading ? (
             <FootballLoader size="sm" label="Loading teams…" />
@@ -236,6 +254,22 @@ function AuthForm() {
               languages={PREFERRED_LANGUAGES}
             />
           ) : null
+        )}
+
+        {mode === "register" && (
+          <div>
+            <label className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={dailyDigest}
+                onChange={(e) => setDailyDigest(e.target.checked)}
+              />
+              <span className="auth-field-label !mb-0">Email me a daily match digest</span>
+            </label>
+            <p className="auth-field-hint">
+              Get a daily email with the day&apos;s matches, sent before kickoff.
+            </p>
+          </div>
         )}
 
         {error && <p className="auth-error">{error}</p>}
