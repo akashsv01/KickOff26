@@ -6,12 +6,15 @@ import { formatTodayLabel, navigateToMatchDetail, type Match } from "@/lib/match
 export function MatchDaySummaryPanel({
   liveCount,
   liveMatch,
+  zone,
 }: {
   liveCount: number;
   liveMatch?: Match | null;
+  zone?: string | null;
 }) {
   const router = useRouter();
-  const todayLabel = formatTodayLabel();
+  // "Today" derives from now in the same active zone as the calendar + times.
+  const todayLabel = formatTodayLabel(zone);
 
   return (
     <div className="md-glass p-4">

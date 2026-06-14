@@ -172,9 +172,9 @@ export default function HomePage() {
   const hasData = matches !== null && matches.length > 0;
   const liveCount = hasData ? matches!.filter((m) => m.status === "live").length : 0;
 
-  const todayKey = localTodayKey();
+  const todayKey = localTodayKey(zone);
   const todayCount = hasData
-    ? matches!.filter((m) => matchDateKey(m) === todayKey).length
+    ? matches!.filter((m) => matchDateKey(m, zone) === todayKey).length
     : 0;
 
   const nextFixture = hasData

@@ -45,6 +45,54 @@ export const SIGNUP_COUNTRIES: SignupCountry[] = [
 /** Display names for the signup dropdown (stored in user.country_region). */
 export const COUNTRY_REGIONS = [...SIGNUP_COUNTRIES.map((c) => c.name), "Other"] as const;
 
+/**
+ * Country display name -> representative IANA zone. MUST mirror the backend
+ * COUNTRY_TIMEZONE (backend/app/data/country_timezones.py). Multi-zone countries
+ * use the capital / most-populous zone. "Other"/unlisted has no entry.
+ */
+export const COUNTRY_TIMEZONE: Record<string, string> = {
+  "United States": "America/New_York",
+  Canada: "America/Toronto",
+  Mexico: "America/Mexico_City",
+  Brazil: "America/Sao_Paulo",
+  Australia: "Australia/Sydney",
+  Indonesia: "Asia/Jakarta",
+  "United Kingdom": "Europe/London",
+  Argentina: "America/Argentina/Buenos_Aires",
+  Germany: "Europe/Berlin",
+  France: "Europe/Paris",
+  Spain: "Europe/Madrid",
+  Italy: "Europe/Rome",
+  Netherlands: "Europe/Amsterdam",
+  Portugal: "Europe/Lisbon",
+  Belgium: "Europe/Brussels",
+  Switzerland: "Europe/Zurich",
+  Poland: "Europe/Warsaw",
+  Sweden: "Europe/Stockholm",
+  Norway: "Europe/Oslo",
+  Denmark: "Europe/Copenhagen",
+  Turkey: "Europe/Istanbul",
+  "Saudi Arabia": "Asia/Riyadh",
+  "United Arab Emirates": "Asia/Dubai",
+  Qatar: "Asia/Qatar",
+  Egypt: "Africa/Cairo",
+  Morocco: "Africa/Casablanca",
+  "South Africa": "Africa/Johannesburg",
+  Nigeria: "Africa/Lagos",
+  India: "Asia/Kolkata",
+  China: "Asia/Shanghai",
+  Japan: "Asia/Tokyo",
+  "South Korea": "Asia/Seoul",
+  Colombia: "America/Bogota",
+  Chile: "America/Santiago",
+};
+
+/** Representative IANA zone for a country label, or null for "Other"/unlisted. */
+export function timezoneForCountry(countryRegion: string | null | undefined): string | null {
+  if (!countryRegion) return null;
+  return COUNTRY_TIMEZONE[countryRegion] ?? null;
+}
+
 const ISO_BY_NAME = Object.fromEntries(SIGNUP_COUNTRIES.map((c) => [c.name, c.code]));
 
 /** Resolve a stored country_region label to ISO 3166-1 alpha-2 (for broadcaster personalization). */

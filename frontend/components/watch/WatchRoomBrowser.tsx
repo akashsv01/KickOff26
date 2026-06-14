@@ -18,6 +18,7 @@ import {
   upNextTodayMatches,
   type RoomSummary,
 } from "@/lib/watch";
+import { useDisplayTimezone } from "@/lib/timezone";
 import { WatchRoomCard } from "./WatchRoomCard";
 
 type Props = {
@@ -28,23 +29,24 @@ type Props = {
 };
 
 export function WatchRoomBrowser({ matches, summaries, activeRoomId, onJoin }: Props) {
-  const today = localTodayKey();
-  const days = useMemo(() => dayCountsFromMatches(matches), [matches]);
-  const [selectedDay, setSelectedDay] = useState(() => defaultMatchDay(days.map((d) => d.date)));
+  const zone = useDisplayTimezone();
+  const today = localTodayKey(zone);
+  const days = useMemo(() => dayCountsFromMatches(matches, zone), [matches, zone]);
+  const [selectedDay, setSelectedDay] = useState(() => defaultMatchDay(days.map((d) => d.date), zone));
   const [search, setSearch] = useState("");
   const [showCalendar, setShowCalendar] = useState(false);
 
   const liveAll = useMemo(() => sortBrowseMatches(liveMatchesAll(matches), summaries), [matches, summaries]);
   const upNext = useMemo(
-    () => sortBrowseMatches(upNextTodayMatches(matches, today), summaries),
-    [matches, summaries, today]
+    () => sortBrowseMatches(upNextTodayMatches(matches, today, zone), summaries),
+    [matches, summaries, today, zone]
   );
 
   const browsePool = useMemo(() => {
-    let pool = filterMatchesByDay(matches, selectedDay);
+    let pool = filterMatchesByDay(matches, selectedDay, zone);
     pool = filterMatchesBySearch(pool, search);
     return sortBrowseMatches(pool, summaries);
-  }, [matches, selectedDay, search, summaries]);
+  }, [matches, selectedDay, search, summaries, zone]);
 
   return (
     <aside id="watch-room-browser" className="watch-browser md-glass" aria-label="Room browser">
@@ -120,6 +122,7 @@ export function WatchRoomBrowser({ matches, summaries, activeRoomId, onJoin }: P
               days={days}
               selected={selectedDay}
               onSelect={setSelectedDay}
+              zone={zone}
               className="watch-calendar"
             />
           ) : (

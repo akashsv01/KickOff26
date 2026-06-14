@@ -17,6 +17,7 @@ export function TournamentCalendar({
   days,
   selected,
   onSelect,
+  zone,
   windowStart = "2026-06-11",
   windowEnd = "2026-07-19",
   className = "",
@@ -24,13 +25,15 @@ export function TournamentCalendar({
   days: { date: string; match_count: number }[];
   selected: string;
   onSelect: (date: string) => void;
+  zone?: string | null;
   windowStart?: string;
   windowEnd?: string;
   className?: string;
 }) {
   const [monthIdx, setMonthIdx] = useState(0);
   const counts = useMemo(() => Object.fromEntries(days.map((d) => [d.date, d.match_count])), [days]);
-  const today = localTodayKey();
+  // "Today" highlight uses the same active zone as the day badges (passed in).
+  const today = localTodayKey(zone);
 
   const year = 2026;
   const month = monthIdx;

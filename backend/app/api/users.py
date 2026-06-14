@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.auth import hash_password, verify_password
+from app.data.country_timezones import timezone_for_country
 from app.db import get_db
 from app.models import Bracket, Message, User
 from app.schemas import AccountDeleteRequest, UserProfileResponse, UserUpdate
@@ -57,10 +58,20 @@ async def update_me(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already taken")
         user.username = data.username
 
+    country_changed = data.country is not None and data.country != user.country_region
     if data.country is not None:
         user.country_region = data.country
     if data.timezone is not None:
+        # An explicit timezone always wins and is never overwritten.
         user.timezone = data.timezone
+    elif country_changed:
+        # Country changed with no explicit timezone -> re-sync the stored zone to
+        # the country's representative zone so the profile, calendar, and
+        # resolve_timezone all agree. "Other"/unlisted has no mapping: leave the
+        # stored zone untouched for manual control.
+        mapped = timezone_for_country(user.country_region)
+        if mapped:
+            user.timezone = mapped
     if data.daily_digest_opt_in is not None:
         user.daily_digest_opt_in = data.daily_digest_opt_in
     if data.password is not None:

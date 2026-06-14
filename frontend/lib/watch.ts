@@ -113,17 +113,17 @@ export function liveMatchesAll(matches: Match[]): Match[] {
   return matches.filter((m) => m.status === "live");
 }
 
-export function upNextTodayMatches(matches: Match[], today: string): Match[] {
+export function upNextTodayMatches(matches: Match[], today: string, zone?: string | null): Match[] {
   return matches.filter((m) => {
     if (m.status === "live") return false;
-    const day = matchDateKey(m);
+    const day = matchDateKey(m, zone);
     return day === today && m.status !== "finished";
   });
 }
 
-export function filterMatchesByDay(matches: Match[], day: string): Match[] {
+export function filterMatchesByDay(matches: Match[], day: string, zone?: string | null): Match[] {
   if (!day) return matches;
-  return matches.filter((m) => matchDateKey(m) === day);
+  return matches.filter((m) => matchDateKey(m, zone) === day);
 }
 
 export function filterMatchesBySearch(matches: Match[], query: string): Match[] {

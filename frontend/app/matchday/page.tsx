@@ -39,12 +39,13 @@ export default function MatchDayPage() {
   const { connected, subscribe, reconnectCount } = useWebSocket(token);
 
   const liveCount = useMemo(() => matches.filter((m) => m.status === "live").length, [matches]);
-  const days = useMemo(() => dayCountsFromMatches(matches), [matches]);
+  // Day badges bucket by the SAME active zone used to display kickoff times.
+  const days = useMemo(() => dayCountsFromMatches(matches, zone), [matches, zone]);
 
   const dayMatches = useMemo(() => {
     if (!selectedDay) return [];
-    return sortDayMatches(matchesForDay(matches, selectedDay));
-  }, [matches, selectedDay]);
+    return sortDayMatches(matchesForDay(matches, selectedDay, zone));
+  }, [matches, selectedDay, zone]);
 
   const liveMatches = useMemo(
     () => dayMatches.filter((m) => m.status === "live"),
@@ -118,8 +119,8 @@ export default function MatchDayPage() {
         for (const match of m) {
           statusByMatchId.current.set(match.id, match.status);
         }
-        const dateKeys = dayCountsFromMatches(m).map((x) => x.date);
-        setSelectedDay(defaultMatchDay(dateKeys));
+        const dateKeys = dayCountsFromMatches(m, zone).map((x) => x.date);
+        setSelectedDay(defaultMatchDay(dateKeys, zone));
         setLastUpdated(new Date());
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load matches"))
@@ -218,11 +219,12 @@ export default function MatchDayPage() {
                 days={days}
                 selected={selectedDay}
                 onSelect={setSelectedDay}
+                zone={zone}
                 className="hidden lg:block"
               />
             </>
           )}
-          <MatchDaySummaryPanel liveCount={liveCount} liveMatch={primaryLiveMatch} />
+          <MatchDaySummaryPanel liveCount={liveCount} liveMatch={primaryLiveMatch} zone={zone} />
           <NotificationsPanel />
         </aside>
 

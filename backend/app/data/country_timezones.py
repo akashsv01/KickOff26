@@ -74,17 +74,20 @@ def default_signup_timezone(country: str | None, browser_tz: str | None) -> str 
 
 
 def resolve_timezone(user) -> str:
-    """Best-effort IANA timezone for a user.
+    """Authoritative IANA timezone for a user (country wins over browser).
 
-    Order: ``user.timezone`` (set at signup via ``default_signup_timezone`` -
-    country zone for known countries, browser zone for "Other"/unlisted - or
-    later edited in the profile), then the country map (``user.country_region``),
-    then UTC.
+    Precedence:
+      1. An explicit, known country (``user.country_region`` in the map) - the
+         chosen country zone overrides the auto-detected browser zone, so editing
+         country on /profile re-localizes immediately.
+      2. Otherwise the stored browser-detected zone (``user.timezone``), which is
+         only set/used for "Other"/unlisted countries.
+      3. UTC.
     """
-    explicit = (getattr(user, "timezone", None) or "").strip()
-    if explicit:
-        return explicit
     mapped = timezone_for_country(getattr(user, "country_region", None))
     if mapped:
         return mapped
+    explicit = (getattr(user, "timezone", None) or "").strip()
+    if explicit:
+        return explicit
     return DEFAULT_TIMEZONE

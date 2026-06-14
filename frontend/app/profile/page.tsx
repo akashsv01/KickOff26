@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import {
   COUNTRY_REGIONS,
   detectBrowserTimezone,
+  timezoneForCountry,
   timezoneOptions,
 } from "@/lib/signupProfile";
 
@@ -250,7 +251,15 @@ export default function ProfilePage() {
               id="pf-country"
               className="auth-field-input"
               value={country}
-              onChange={(e) => setCountry(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setCountry(next);
+                // Re-sync the time zone field to the chosen country's zone, so what
+                // the user sees is what gets saved. "Other"/none keeps the current
+                // zone for manual control; a later manual pick still overrides this.
+                const zone = timezoneForCountry(next);
+                if (zone) setTimezone(zone);
+              }}
             >
               <option value="">Prefer not to say</option>
               {COUNTRY_REGIONS.map((c) => (

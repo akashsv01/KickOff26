@@ -77,19 +77,42 @@ export type Team = {
   elo_rating?: number;
 };
 
-/** Eastern Time calendar day (official 2026 schedule) - never fall back to UTC kickoff slice. */
-export function matchDateKey(match: Pick<Match, "local_date">): string | null {
-  return match.local_date ?? null;
+/**
+ * The single source of truth for "which calendar day a match is on": the day
+ * (YYYY-MM-DD) its UTC kickoff falls on in `zone` - the SAME zone used to display
+ * kickoff times (useDisplayTimezone). When `zone` is omitted it uses the browser
+ * zone. en-CA renders YYYY-MM-DD without a UTC off-by-one.
+ */
+export function getMatchLocalDate(
+  iso: string | null | undefined,
+  zone?: string | null
+): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-CA", zone ? { timeZone: zone } : undefined);
 }
 
-export function matchesForDay(matches: Match[], day: string): Match[] {
-  return matches.filter((m) => matchDateKey(m) === day);
+/**
+ * Calendar day a match belongs to, bucketed in the active display `zone` (so the
+ * day badge matches the localized kickoff time). Falls back to the backend
+ * local_date only when no kickoff timestamp is available.
+ */
+export function matchDateKey(
+  match: Pick<Match, "kickoff_at" | "local_date">,
+  zone?: string | null
+): string | null {
+  return getMatchLocalDate(match.kickoff_at, zone) ?? match.local_date ?? null;
 }
 
-export function dayCountsFromMatches(matches: Match[]): MatchDay[] {
+export function matchesForDay(matches: Match[], day: string, zone?: string | null): Match[] {
+  return matches.filter((m) => matchDateKey(m, zone) === day);
+}
+
+export function dayCountsFromMatches(matches: Match[], zone?: string | null): MatchDay[] {
   const counts: Record<string, number> = {};
   for (const m of matches) {
-    const key = matchDateKey(m);
+    const key = matchDateKey(m, zone);
     if (key) counts[key] = (counts[key] ?? 0) + 1;
   }
   return Object.entries(counts)
@@ -127,26 +150,24 @@ export function formatDayLabel(dateKey: string) {
 
 export const TOURNAMENT_WINDOW = { start: "2026-06-11", end: "2026-07-19" };
 
-/** Calendar day in the user's local timezone (YYYY-MM-DD). Avoids UTC off-by-one from toISOString(). */
-export function localTodayKey(now = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+/** Today (YYYY-MM-DD) in the active `zone` (browser zone when omitted). */
+export function localTodayKey(zone?: string | null, now = new Date()): string {
+  return now.toLocaleDateString("en-CA", zone ? { timeZone: zone } : undefined);
 }
 
-export function formatTodayLabel(now = new Date()): string {
+export function formatTodayLabel(zone?: string | null, now = new Date()): string {
   return now.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
     year: "numeric",
+    ...(zone ? { timeZone: zone } : {}),
   });
 }
 
-export function defaultMatchDay(dates: string[], now = new Date()): string {
+export function defaultMatchDay(dates: string[], zone?: string | null, now = new Date()): string {
   if (!dates.length) return "";
-  const today = localTodayKey(now);
+  const today = localTodayKey(zone, now);
   const inWindow = today >= TOURNAMENT_WINDOW.start && today <= TOURNAMENT_WINDOW.end;
   if (inWindow && dates.includes(today)) return today;
   if (inWindow) {
