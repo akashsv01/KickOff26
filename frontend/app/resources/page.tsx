@@ -1,3 +1,5 @@
+import { SiteFooter } from "@/components/SiteFooter";
+
 type Resource = {
 
   title: string;
@@ -343,6 +345,8 @@ export default function ResourcesPage() {
         through the official 2026 ticketing channel.
 
       </p>
+
+      <SiteFooter />
 
     </div>
 

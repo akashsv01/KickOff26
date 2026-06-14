@@ -37,15 +37,20 @@
 
 | Module | What it does |
 |--------|--------------|
-| 🔴 **Live Matches** (`/matchday`) | Live scores dashboard backed by a self-built Poisson/Elo win-probability model, a personalized following feed, match detail pages with event timelines, and momentum alerts pushed over WebSocket. |
+| 🔴 **Live Matches** (`/matchday`) | Live scores dashboard backed by a self-built Poisson/Elo win-probability model, a personalized following feed, match detail pages with event timelines, **kickoff countdown timers**, timezone-aware kickoff times, and momentum alerts pushed over WebSocket. |
 | 🏆 **Predictions / Bracket** (`/bracket`) | Build group-stage and knockout picks by hand, or run a **Monte Carlo simulator** (1k / 10k / 50k runs) in a background process pool for advancement and champion odds. Export your knockout bracket as a shareable PNG or PDF. |
 | ✈️ **Travel Planner** (`/fanplan`) | A multi-city itinerary optimizer that picks the best set of matches to attend across the 16 host cities given your followed teams, budget, and travel constraints - with estimated ticket and travel costs, rendered on an interactive Leaflet map and exportable to PDF. |
 | 💬 **Fan Rooms** (`/watch`) | Per-match real-time chat rooms with live presence, custom polls, and floating emoji reactions. Viewing is open to everyone; sending messages and creating polls requires login. |
 | **Teams** (`/teams`) | All 48 nations grouped A-L with flags and team codes, plus a per-team view: squads, coaches, fixtures, venues, and a player to watch. |
 | **Standings** (`/standings`) | Live group tables for all 12 groups with real tiebreakers (points, GD, GF). Top 2 of each group plus the 8 best third-placed teams are highlighted, updating in real time as scores change. |
-| **AI tournament assistant** | A Groq-powered assistant that answers tournament questions grounded in the app's own data. |
+| 👤 **Accounts & profile** (`/auth`, `/profile`) | Email/password signup with your favorite nation, country, auto-detected timezone, and a daily-digest opt-in. View, edit, or delete your account on the profile page, and **reset a forgotten password by email**. JWT auth with bcrypt-hashed passwords. |
+| 🔔 **Notifications** | Real-time kickoff, goal, and full-time alerts from one shared store, surfaced in both the nav bell dropdown and the matchday sidebar panel. |
+| 📧 **Email** | A branded **welcome email** on signup and an **opt-in daily digest** sent ~2 hours before your first match of the day - both timezone-aware - via [Resend](https://resend.com). |
+| 🤖 **AI tournament assistant** | A Groq-powered assistant that answers tournament questions grounded in the app's own data. |
 | **Resources** (`/resources`) | Curated official links - tournament site, broadcasters, ticketing, host cities - plus the real data sources behind the app. |
 | **Following** (`/following`) | A personalized feed for the teams you follow across matches, alerts, and standings. |
+
+> **Timezone-aware throughout.** Logged-in users see kickoff times, the calendar day-bucketing, and the daily digest in their country's timezone (chosen country wins over the browser zone); the kickoff countdown always counts down to the absolute UTC kickoff instant, so live behavior is identical for everyone regardless of zone.
 
 ---
 
@@ -57,8 +62,10 @@
 | **Backend** | FastAPI + Python, async SQLAlchemy 2.0, Pydantic v2, Uvicorn, WebSockets |
 | **Database** | PostgreSQL (Neon in production, local Postgres in dev) |
 | **Real-time** | A single in-process WebSocket gateway (`ws_manager`) with channel pub/sub |
-| **Auth** | JWT (python-jose) + bcrypt password hashing (passlib) |
+| **Auth** | JWT (python-jose) + bcrypt password hashing (passlib); single-use hashed password-reset tokens |
 | **Compute** | NumPy-powered Monte Carlo simulator on a `ProcessPoolExecutor` |
+| **Email** | [Resend](https://resend.com) transactional email (welcome + opt-in daily digest), shared branded HTML components |
+| **Scheduling** | APScheduler (optional in-process digest loop) or a standalone scheduled job |
 | **AI** | Groq (Llama 3.3 70B) tournament assistant |
 
 > The backend also runs on SQLite with zero config (it is the automatic fallback when `DATABASE_URL` is unset, and the engine the test suite uses) - but PostgreSQL is the database for dev and production. See [Testing](#testing).
@@ -161,6 +168,11 @@ Copy `.env.example` to `.env` and fill in values. Backend settings live in `.env
 | `ZAFRONIX_API_BASE` | Base URL for the Zafronix API. | `https://api.zafronix.com` (both). |
 | `ZAFRONIX_LIVE_FETCH_ENABLED` | Set `true` only to allow live Zafronix HTTP fetches. | `false` (both). |
 | `GROQ_API_KEY` / `GROQ_MODEL` / `GROQ_MAX_TOKENS` | AI tournament assistant ([Groq](https://console.groq.com), free tier). | Same both; key required for the assistant. |
+| `RESEND_API_KEY` | [Resend](https://resend.com) key for transactional email (welcome + daily digest). If unset, emails are skipped (logged) and never block signup. | Optional locally; set in production. |
+| `FROM_EMAIL` | Verified sender (display name + address). | Local/sandbox: `KickOff26 <onboarding@resend.dev>`. Production: `KickOff26 <hello@kickoff2026.tech>`. |
+| `EMAIL_LOGO_URL` | Logo shown in email headers; use a direct (non-redirecting) URL. | Defaults to `{APP_BASE_URL}/icon-192.png`; recommended `https://www.kickoff2026.tech/icon-192.png`. |
+| `APP_BASE_URL` | Public app URL used in email links (e.g. the password-reset link). | Local: `http://localhost:3000`. Production: `https://kickoff2026.tech`. |
+| `ENABLE_DIGEST_SCHEDULER` | `true` runs the in-process APScheduler digest loop; leave `false` to use a standalone scheduled job instead (do not enable both). | `false` (both) unless using the in-process scheduler. |
 | `JWT_SECRET` | Signing secret for auth tokens - set to a long random string. | Use a strong, unique value in production. |
 | `JWT_ALGORITHM` / `JWT_EXPIRE_MINUTES` | Token algorithm and lifetime. | `HS256` / `10080` (7 days). |
 | `DATA_MODE` | `mock` = skip re-seed if DB already populated. `live` = force re-seed on startup. | `mock` after initial setup so restarts do not force a re-seed. |
@@ -181,12 +193,16 @@ Copy `.env.example` to `.env` and fill in values. Backend settings live in `.env
 
 **Fresh database bootstrap.** Point the backend at the new (empty) `DATABASE_URL`, set `JWT_SECRET`, `LIVE_DATA_MODE=api` and `WORLDCUP_API_TOKEN`, then run `python -m app.setup` once. It creates the full schema, seeds teams + the openfootball schedule, syncs WorldCup reference data (stadiums, group/game links), and seeds the bundled squads. It is idempotent and safe to re-run. After the first run, set `DATA_MODE=mock` so restarts do not force a re-seed.
 
+**Daily-digest scheduling (pick one).** Either set `ENABLE_DIGEST_SCHEDULER=true` to run the in-process APScheduler loop, **or** run a DigitalOcean App Platform Scheduled Job (`python -m app.jobs.daily_digest`) every 15-30 min. The job is idempotent (one digest per user per local day) and only sends inside each user's window, so frequent runs are safe. Do not enable both.
+
 Maintenance:
 
 | Task | Command |
 |------|---------|
 | Re-sync tournament reference data | `python scripts/sync_worldcup_api.py` or `POST /api/matchday/worldcup/sync` |
 | Re-seed bundled squads | `python scripts/seed_team_rosters.py` or `POST /api/teams/rosters/resync` |
+| Send due daily digests (scheduled job) | `python -m app.jobs.daily_digest` (every 15-30 min) |
+| Clean up scorer/timeline data (one-off) | `python -m app.jobs.backfill_scorers` (`--apply` to write) |
 | Clear watch-room content only | `python scripts/clear_room_content.py --confirm` |
 | Check relational integrity | `python scripts/verify_db_integrity.py` |
 
@@ -204,18 +220,20 @@ KickOff26/
 │   │   ├── db/__init__.py     # Async engine, session, init_db + lightweight migrations
 │   │   ├── models/__init__.py # SQLAlchemy ORM models (JSON/JSONB variant)
 │   │   ├── schemas/           # Pydantic request/response models
-│   │   ├── auth/              # JWT + bcrypt helpers, user lookups
-│   │   ├── api/               # HTTP routers: auth, teams, matchday, bracket, rooms, fanplan
-│   │   ├── services/          # Business logic (worldcup poller/sync, live standings, simulator, ...)
+│   │   ├── auth/              # JWT + bcrypt, single-use password-reset tokens, user lookups
+│   │   ├── api/               # HTTP routers: auth, users, teams, matchday, bracket, rooms, fanplan, chat
+│   │   ├── services/          # Business logic (worldcup poller/sync, simulator, email + digest, ...)
+│   │   ├── data/              # country_timezones map (display label -> IANA zone)
+│   │   ├── jobs/              # daily_digest (scheduled), backfill_scorers (one-off cleanup)
 │   │   └── websocket/         # /ws handler + shared channel gateway (ws_manager)
 │   ├── data/                  # Bundled openfootball schedule, squads, ticket estimates (JSON)
 │   ├── scripts/               # setup helpers, get_worldcup_token.py, sync/seed scripts
 │   ├── Dockerfile             # Backend image (used by DigitalOcean App Platform)
 │   └── tests/                 # pytest suite
 ├── frontend/
-│   ├── app/                   # Next.js App Router pages (matchday, bracket, fanplan, watch, ...)
+│   ├── app/                   # App Router pages (matchday, bracket, fanplan, watch, auth, profile, forgot/reset-password, ...)
 │   ├── components/            # React UI components (per feature)
-│   ├── lib/                   # api.ts, websocket.tsx, domain helpers
+│   ├── lib/                   # api.ts, websocket.tsx, auth + timezone context, domain helpers
 │   └── styles/                # Theme tokens + per-feature CSS
 ├── scripts/                   # setup-postgres.ps1, dev-backend.ps1
 ├── docker-compose.yml         # Local Postgres + backend services
@@ -269,7 +287,7 @@ cd backend
 pytest -v
 ```
 
-The suite (win-probability, simulator, itinerary, live poller, match calendar/events/lineups, R32 seeding, bracket standings, rooms, sim jobs, and API integration) runs on **SQLite** for speed and isolation - no Postgres or Docker required. `conftest.py` points `DATABASE_URL` at a throwaway `test_kickoff26.db` and sets `TESTING` so background loops do not start. The same async SQLAlchemy models run on both engines (`JsonField = JSON().with_variant(JSONB, "postgresql")`), so SQLite tests exercise the same code paths that run on Postgres in production.
+The suite (win-probability, simulator, itinerary, live poller + scorer parsing, match calendar/events/lineups, R32 seeding, bracket standings, rooms, sim jobs, accounts + password reset, email + daily digest, timezone resolution, and API integration) runs on **SQLite** for speed and isolation - no Postgres or Docker required. `conftest.py` points `DATABASE_URL` at a throwaway `test_kickoff26.db` and sets `TESTING` so background loops do not start. The same async SQLAlchemy models run on both engines (`JsonField = JSON().with_variant(JSONB, "postgresql")`), so SQLite tests exercise the same code paths that run on Postgres in production.
 
 Frontend logic tests:
 
