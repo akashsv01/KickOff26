@@ -274,7 +274,7 @@ export default function HomePage() {
       <section className="home-enter home-enter-3" aria-label="Explore KickOff26">
         <div className="home-section-head">
           <span className="home-section-eyebrow">Explore</span>
-          <h2 className="home-section-title">Four ways to live the World Cup</h2>
+          <h2 className="home-section-title">Six ways to live the World Cup</h2>
         </div>
         <div className="home-destinations">
           {destinations.map((d) => (
