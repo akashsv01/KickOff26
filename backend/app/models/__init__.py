@@ -155,9 +155,14 @@ class Match(Base):
     win_prob_home: Mapped[float | None] = mapped_column(Float)
     win_prob_draw: Mapped[float | None] = mapped_column(Float)
     win_prob_away: Mapped[float | None] = mapped_column(Float)
-    # Set once when a finished match's scorers are reconciled against the final
-    # authoritative payload (so the one-time reconciliation does not repeat).
+    # Integrity signal: True only when a clean scorer list whose count matches the
+    # score is stored for BOTH sides. NOT a "score is final" signal - that is the
+    # FINISHED status. A finished match can have scorers_reconciled=False (score
+    # final, but the API's scorer detail was incomplete).
     scorers_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set True once the finish-transition reconciliation has run (regardless of
+    # outcome), so reconciled=False is distinguishable from "not yet processed".
+    reconcile_attempted: Mapped[bool] = mapped_column(Boolean, default=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

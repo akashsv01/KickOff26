@@ -189,6 +189,12 @@ export default function MatchDetailPage() {
           <div className="md-glass-content">
             <h2 className="md-section-title text-champagne">Match timeline</h2>
             <MatchTimeline match={match} events={events} isFinished={isFinished} />
+            {isFinished && match.scorers_reconciled === false && (
+              <p className="mt-4 text-xs text-app-faint">
+                Some scorer details are unavailable for this match. The final score is correct -
+                a few goalscorers were not provided by the data source.
+              </p>
+            )}
           </div>
         </div>
       )}

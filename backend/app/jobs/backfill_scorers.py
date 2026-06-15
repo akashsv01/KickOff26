@@ -53,7 +53,7 @@ from app.db import async_session, engine
 from app.models import Match, MatchEvent, MatchStatus
 from app.services.match_events import replace_side_goals
 from app.services.worldcup_api import WorldCupApiClient, close_shared_http_client
-from app.services.worldcup_parse import _first, api_object_id, parse_int, parse_scorers
+from app.services.worldcup_parse import _first, api_object_id, parse_int, parse_scorers_clean
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("backfill_scorers")
@@ -77,6 +77,24 @@ def _fmt_goal(row_or_dict) -> str:
 
 def _fmt_side(goals) -> str:
     return "[" + ", ".join(_fmt_goal(g) for g in goals) + "]" if goals else "[]"
+
+
+async def _dedup_side(db: AsyncSession, match_id: int, side: str) -> int:
+    """Delete exact-duplicate goal rows for a side, keeping the first of each
+    distinct (player, minute, added_time). API-independent DB hygiene."""
+    rows = await _stored_goals(db, match_id, side)
+    seen: set[tuple] = set()
+    removed = 0
+    for r in rows:
+        key = (r.player_name, r.minute, r.added_time)
+        if key in seen:
+            await db.delete(r)
+            removed += 1
+        else:
+            seen.add(key)
+    if removed:
+        await db.flush()
+    return removed
 
 
 async def _stored_goals(db: AsyncSession, match_id: int, side: str) -> list[MatchEvent]:
@@ -107,6 +125,8 @@ async def _require_schema() -> None:
         m_cols = {c["name"] for c in insp.get_columns("matches")}
         if "scorers_reconciled" not in m_cols:
             missing.append("matches.scorers_reconciled")
+        if "reconcile_attempted" not in m_cols:
+            missing.append("matches.reconcile_attempted")
         return missing
 
     async with engine.connect() as conn:
@@ -132,7 +152,8 @@ async def backfill(apply: bool) -> int:
     # Fail fast on schema drift before making any network call.
     await _require_schema()
 
-    scanned = cleaned = sides_replaced = entries_dropped = skipped = flagged = 0
+    scanned = cleaned = sides_replaced = entries_dropped = skipped = flagged = reconciled_now = 0
+    dup_collapsed = 0
 
     try:
         games = await client.get_games()
@@ -152,6 +173,9 @@ async def backfill(apply: bool) -> int:
             await db.execute(
                 select(Match)
                 .options(selectinload(Match.home_team), selectinload(Match.away_team))
+                # Scan all live/finished matches: besides reconciling, this is a
+                # one-off cleanup that also collapses any duplicate goal rows,
+                # which can exist regardless of the reconciled flag.
                 .where(Match.status.in_([MatchStatus.LIVE, MatchStatus.FINISHED]))
                 .order_by(Match.id)
             )
@@ -172,52 +196,71 @@ async def backfill(apply: bool) -> int:
             api_away = parse_int(_first(game, "away_score", "awayScore", "score_away")) or 0
             home_raw = _first(game, "home_scorers", "homeScorers")
             away_raw = _first(game, "away_scorers", "awayScorers")
-            home_parsed = parse_scorers(home_raw, api_home)
-            away_parsed = parse_scorers(away_raw, api_away)
 
             match_changed = False
+            verified = {"home": False, "away": False}
             try:
-                for side, parsed, raw, score in (
-                    ("home", home_parsed, home_raw, api_home),
-                    ("away", away_parsed, away_raw, api_away),
+                for side, raw, score in (
+                    ("home", home_raw, api_home),
+                    ("away", away_raw, api_away),
                 ):
                     before = await _stored_goals(db, match.id, side)
-                    if parsed is None:
+                    before_keys = {(g.player_name, g.minute, g.added_time) for g in before}
+                    before_unique = len(before_keys)
+
+                    # (a) Collapse exact-duplicate stored rows (a NULL added_time lets
+                    #     identical rows slip past the unique constraint). Always safe,
+                    #     independent of the API payload.
+                    dup_rows = len(before) - before_unique
+                    if dup_rows > 0:
+                        dup_collapsed += dup_rows
+                        match_changed = True
+                        print(f"{label} {side}: remove {dup_rows} duplicate row(s)")
+                        if apply:
+                            async with db.begin_nested():
+                                await _dedup_side(db, match.id, side)
+
+                    # (b) Monotonic reconcile against the authoritative payload, using
+                    #     DISTINCT counts so a duplicate-laden feed never shrinks/blocks.
+                    clean = parse_scorers_clean(raw)
+                    if clean is None:
+                        verified[side] = before_unique == score
                         if score > 0 or before:
                             flagged += 1
                             logger.warning(
-                                "FLAG %s %s: untrusted scorers, keeping %d stored. raw=%r",
-                                label, side, len(before), raw,
+                                "FLAG %s %s: untrusted scorers, keeping %d. raw=%r",
+                                label, side, before_unique, raw,
                             )
                         continue
-                    before_keys = {(g.player_name, g.minute, g.added_time) for g in before}
-                    after_keys = {(p["player_name"], p["minute"], p["added_time"]) for p in parsed}
-                    if before_keys == after_keys:
+                    after_keys = {(p["player_name"], p["minute"], p["added_time"]) for p in clean}
+                    clean_unique = len(after_keys)
+                    if clean_unique < before_unique:
+                        verified[side] = before_unique == score  # HOLD - do not shrink
                         continue
-                    print(
-                        f"{label} {side}: {_fmt_side(before)} -> {_fmt_side(parsed)}"
-                    )
+                    verified[side] = clean_unique == score
+                    if before_keys == after_keys:
+                        continue  # already the right distinct set
+                    print(f"{label} {side}: {_fmt_side(before)} -> {_fmt_side(clean)}")
                     sides_replaced += 1
                     match_changed = True
-                    entries_dropped += max(0, len(before) - len(parsed))
+                    entries_dropped += max(0, before_unique - clean_unique)
                     if apply:
                         async with db.begin_nested():
-                            await replace_side_goals(db, match.id, side, parsed)
+                            await replace_side_goals(db, match.id, side, clean)
 
                 if apply:
-                    # Keep the stored score authoritative for count consistency, and
-                    # lock finished matches whose scorers fully reconciled.
+                    # Score stays authoritative; flag the match honestly: reconciled
+                    # only when both sides are clean AND count-match, attempted always.
                     async with db.begin_nested():
                         match.home_score = api_home
                         match.away_score = api_away
-                        if (
-                            match.status == MatchStatus.FINISHED
-                            and home_parsed is not None
-                            and away_parsed is not None
-                        ):
-                            match.scorers_reconciled = True
+                        if match.status == MatchStatus.FINISHED:
+                            match.reconcile_attempted = True
+                            match.scorers_reconciled = bool(verified["home"] and verified["away"])
                     await db.commit()
 
+                if match.status == MatchStatus.FINISHED and verified["home"] and verified["away"]:
+                    reconciled_now += 1
                 if match_changed:
                     cleaned += 1
             except Exception as exc:  # noqa: BLE001 - one bad match must not abort the run
@@ -229,7 +272,9 @@ async def backfill(apply: bool) -> int:
     print(f"  matches scanned:        {scanned}")
     print(f"  matches cleaned:        {cleaned}")
     print(f"  sides replaced:         {sides_replaced}")
+    print(f"  duplicate rows removed: {dup_collapsed}")
     print(f"  garbage entries dropped:{entries_dropped}")
+    print(f"  reconciled (count-ok):  {reconciled_now}")
     print(f"  flagged (kept as-is):   {flagged}")
     print(f"  skipped:                {skipped}")
     if not apply:

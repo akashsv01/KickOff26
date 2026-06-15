@@ -21,7 +21,7 @@ from app.services.matchday_alerts import (
     emit_prob_momentum,
     emit_status_alert,
 )
-from app.services.match_events import fetch_events_for_match, replace_side_goals
+from app.services.match_events import fetch_events_for_match, fetch_side_goals, replace_side_goals
 from app.services.openfootball import OFFICIAL_EXTERNAL_PREFIX
 from app.services.worldcup_parse import (
     _first,
@@ -30,7 +30,7 @@ from app.services.worldcup_parse import (
     normalize_code,
     parse_elapsed_minute,
     parse_int,
-    parse_scorers,
+    parse_scorers_clean,
 )
 from app.websocket.gateway import ws_manager
 
@@ -127,29 +127,50 @@ async def _apply_side_scorers(
     match: Match,
     game: dict,
     side: str,
-) -> tuple[bool, list[dict] | None]:
-    """Validate and replace one side's goals from its raw scorers field.
+) -> tuple[bool, bool]:
+    """Store the best clean scorer set for one side (monotonic).
 
-    Returns ``(changed, parsed)``. ``parsed`` is the trustworthy structured scorer
-    list, or ``None`` when the payload is untrustworthy (malformed, non-English,
-    or count != score) - in which case the stored goals are left untouched so the
-    last known-good list survives until a clean payload arrives.
+    - A clean payload with at least as many entries as we already have replaces
+      the set (grow). The API's scorers field often lags the score, so a clean
+      list SHORTER than the score is still accepted - we never fabricate fillers.
+    - A smaller/empty payload, or an untrustworthy one (non-Latin/malformed), is
+      ignored so we never wipe a larger known-good set (HOLD).
+
+    Returns ``(changed, verified)`` where ``verified`` is True iff the stored set
+    is clean AND its count matches the score (the strict reconciliation check).
+    The numeric score is set independently by the caller and is unaffected here.
     """
     raw = _first(game, f"{side}_scorers", f"{side}Scorers")
-    score = match.home_score if side == "home" else match.away_score
-    parsed = parse_scorers(raw, score or 0)
-    if parsed is None:
-        if (score or 0) > 0:
+    score = (match.home_score if side == "home" else match.away_score) or 0
+    existing = await fetch_side_goals(db, match.id, side)
+    # Count DISTINCT stored scorers, not raw rows: a NULL added_time can let a
+    # duplicate row slip past the unique constraint, and the "don't shrink"
+    # guard must not let those duplicates block a clean replace that collapses them.
+    existing_unique = len(
+        {(e.get("player"), e.get("minute"), e.get("added_time")) for e in existing}
+    )
+    clean = parse_scorers_clean(raw)
+    if clean is None:
+        # Untrusted (non-Latin/malformed) -> hold the last known-good set.
+        if score > 0:
             logger.warning(
-                "Untrustworthy %s scorers for match %s (score=%s); keeping last good. raw=%r",
+                "Untrusted %s scorers for match %s (score=%s); holding %d stored. raw=%r",
                 side,
                 match.id,
                 score,
+                existing_unique,
                 raw,
             )
-        return False, None
-    changed = await replace_side_goals(db, match.id, side, parsed)
-    return changed, parsed
+        return False, (existing_unique == score)
+
+    # Compare DISTINCT scorers so a duplicate-laden payload neither shrinks a good
+    # set nor blocks collapsing duplicate stored rows.
+    clean_unique = len({(c["player_name"], c["minute"], c["added_time"]) for c in clean})
+    if clean_unique < existing_unique:
+        return False, (existing_unique == score)  # HOLD - do not shrink
+
+    changed = await replace_side_goals(db, match.id, side, clean)
+    return changed, (clean_unique == score)
 
 
 async def apply_game_snapshot(
@@ -217,41 +238,39 @@ async def apply_game_snapshot(
                 f"{match.away_score or 0} {match.away_team.code}",
             )
 
-    # Scorers: per-side validate + replace (never append). Untrusted payloads
-    # (malformed, non-English, count != score) keep the last known-good list.
-    home_changed, home_parsed = await _apply_side_scorers(db, match, game, "home")
-    away_changed, away_parsed = await _apply_side_scorers(db, match, game, "away")
+    # Scorers: per-side monotonic store of the best clean set (never wipes a
+    # larger good set, never fabricates fillers). `verified` = clean count matches
+    # the score. The numeric score above is always applied independently.
+    home_changed, home_verified = await _apply_side_scorers(db, match, game, "home")
+    away_changed, away_verified = await _apply_side_scorers(db, match, game, "away")
     goals_changed = home_changed or away_changed
 
-    # One-time finished reconciliation: when both sides parse cleanly at full time,
-    # the stored timeline now matches the authoritative final score - lock it.
-    if (
-        match.status == MatchStatus.FINISHED
-        and not match.scorers_reconciled
-        and home_parsed is not None
-        and away_parsed is not None
-    ):
-        match.scorers_reconciled = True
+    # Finish reconciliation runs once. The score is already final (FINISHED). The
+    # `reconciled` flag is the strict integrity signal: a clean, count-matching
+    # scorer list for BOTH sides. Otherwise it stays False but reconcile_attempted
+    # marks it as processed (final score known, scorer detail incomplete) rather
+    # than looking unprocessed - the backfill job can retry these later.
+    if match.status == MatchStatus.FINISHED and not match.reconcile_attempted:
+        match.reconcile_attempted = True
+        match.scorers_reconciled = bool(home_verified and away_verified)
 
     if emit_alerts:
-        # Goal alerts fire on a real score increase (reliable), with scorer detail
-        # when trustworthy and a neutral goal otherwise - never a phantom/0'.
-        for side, old_side_score, parsed in (
-            ("home", old_home, home_parsed),
-            ("away", old_away, away_parsed),
-        ):
+        # Goal alerts fire on a real score increase, using whatever clean scorer
+        # detail we have stored (neutral goal when the API hasn't named it yet).
+        for side, old_side_score in (("home", old_home), ("away", old_away)):
             new_side_score = match.home_score if side == "home" else match.away_score
             delta = (new_side_score or 0) - (old_side_score or 0)
             if delta <= 0:
                 continue
-            new_scorers = parsed[-delta:] if (parsed and len(parsed) >= delta) else [None] * delta
+            stored = await fetch_side_goals(db, match.id, side)
+            new_scorers = stored[-delta:] if len(stored) >= delta else [None] * delta
             for sc in new_scorers:
                 ev = {
                     "type": "goal",
                     "team": side,
-                    "minute": sc["minute"] if sc else None,
-                    "added_time": sc["added_time"] if sc else None,
-                    "player": sc["player_name"] if sc else None,
+                    "minute": sc.get("minute") if sc else None,
+                    "added_time": sc.get("added_time") if sc else None,
+                    "player": sc.get("player") if sc else None,
                 }
                 await broadcast_alert(build_event_alert(match, ev), match.id)
 

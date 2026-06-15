@@ -204,23 +204,19 @@ def _migrate_match_event_added_time(sync_conn) -> None:
 
 
 def _migrate_match_scorers_reconciled(sync_conn) -> None:
-    """Add matches.scorers_reconciled (idempotent, dialect-aware default)."""
+    """Add matches.scorers_reconciled + reconcile_attempted (idempotent, dialect-aware)."""
     from sqlalchemy import inspect, text
 
     insp = inspect(sync_conn)
     if "matches" not in insp.get_table_names():
         return
     cols = {c["name"] for c in insp.get_columns("matches")}
-    if "scorers_reconciled" in cols:
-        return
-    if sync_conn.dialect.name == "postgresql":
-        sync_conn.execute(
-            text("ALTER TABLE matches ADD COLUMN scorers_reconciled BOOLEAN NOT NULL DEFAULT FALSE")
-        )
-    else:
-        sync_conn.execute(
-            text("ALTER TABLE matches ADD COLUMN scorers_reconciled BOOLEAN NOT NULL DEFAULT 0")
-        )
+    default_false = "FALSE" if sync_conn.dialect.name == "postgresql" else "0"
+    for col in ("scorers_reconciled", "reconcile_attempted"):
+        if col not in cols:
+            sync_conn.execute(
+                text(f"ALTER TABLE matches ADD COLUMN {col} BOOLEAN NOT NULL DEFAULT {default_false}")
+            )
 
 
 def _migrate_password_reset_columns(sync_conn) -> None:

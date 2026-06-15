@@ -52,6 +52,22 @@ def event_row_to_dict(row: MatchEvent) -> dict:
     return out
 
 
+async def fetch_side_goals(db: AsyncSession, match_id: int, team_side: str) -> list[dict]:
+    """Stored goal events for one side, ordered (unknown minutes last)."""
+    rows = (
+        await db.execute(
+            select(MatchEvent)
+            .where(
+                MatchEvent.match_id == match_id,
+                MatchEvent.event_type == "goal",
+                MatchEvent.team_side == team_side,
+            )
+            .order_by(func.coalesce(MatchEvent.minute, 9999), MatchEvent.id)
+        )
+    ).scalars().all()
+    return [event_row_to_dict(row) for row in rows]
+
+
 async def replace_side_goals(
     db: AsyncSession,
     match_id: int,
@@ -92,7 +108,10 @@ async def replace_side_goals(
         clean.append({"player_name": name, "minute": minute, "added_time": added})
 
     existing_keys = {(e.player_name, e.minute, e.added_time) for e in existing}
-    if existing_keys == seen:
+    # Replace when the desired set differs OR when the stored rows contain
+    # duplicates (more rows than distinct keys - a NULL added_time slips past the
+    # unique constraint, so set-equality alone would mask and never collapse them).
+    if existing_keys == seen and len(existing) == len(clean):
         return False
 
     for row in existing:

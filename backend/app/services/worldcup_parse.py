@@ -218,24 +218,19 @@ def split_name_minute(item: str) -> tuple[str, int | None, int | None]:
     return name, minute, added
 
 
-def parse_scorers(raw: object, expected_count: int) -> list[dict] | None:
-    """Parse a scorers field into a trustworthy structured list, or None.
+def parse_scorers_clean(raw: object) -> list[dict] | None:
+    """Live-acceptance parser: every cleanly-parseable scorer, count-tolerant.
 
-    Returns a list of ``{player_name, minute, added_time, raw}`` only when the
-    payload is clean: English-only names, every minute in range, and the number
-    of parsed goals EQUALS ``expected_count`` (the side's score). Returns ``[]``
-    for a genuine zero-goal side. Returns ``None`` - meaning "not trustworthy
-    yet, keep the last known-good list" - for malformed, non-English, partial, or
-    count-mismatched payloads (e.g. the literal "null", braces-only, or a phantom
-    empty entry). Never raises - any unexpected shape degrades to ``None``.
+    Returns an ordered list of ``{player_name, minute, added_time, raw}`` - which
+    may be SHORTER than the score (the API's scorers field often lags), and is
+    ``[]`` for a genuine no-scorers payload (the literal "null", ``{}``, empty).
+    Returns ``None`` only when the payload is UNTRUSTWORTHY - any entry is
+    non-Latin or has an unparseable/out-of-range minute - so callers HOLD the
+    last known-good set instead of wiping it. Does NOT gate on count == score;
+    that strict check belongs to the reconciler (``parse_scorers``). Never raises.
     """
     try:
         items = parse_scorers_raw(raw)
-        if expected_count <= 0:
-            # Score 0 is trustworthy only if the feed also reports no scorers.
-            return [] if not items else None
-        if not items or len(items) != expected_count:
-            return None
         out: list[dict] = []
         for item in items:
             if isinstance(item, dict):
@@ -258,6 +253,21 @@ def parse_scorers(raw: object, expected_count: int) -> list[dict] | None:
         return out
     except Exception:
         return None
+
+
+def parse_scorers(raw: object, expected_count: int) -> list[dict] | None:
+    """STRICT reconciler verification: a clean scorer list whose count EXACTLY
+    equals ``expected_count`` (the side's score), else ``None``. ``[]`` for a
+    genuine 0-goal side.
+
+    Use this ONLY to decide ``reconciled`` (the integrity signal). Live acceptance
+    uses ``parse_scorers_clean`` (count-tolerant + monotonic) so a lagging scorers
+    field never freezes or wipes the timeline.
+    """
+    clean = parse_scorers_clean(raw)
+    if clean is None:
+        return None
+    return clean if len(clean) == max(expected_count, 0) else None
 
 
 def parse_local_date(
