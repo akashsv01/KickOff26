@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field, computed_field, field_validator
+from pydantic import AliasChoices, BaseModel, EmailStr, Field, computed_field, field_validator
 
 from app.data.country_timezones import resolve_timezone
 
@@ -289,21 +289,36 @@ class RoomCreate(BaseModel):
     name: str | None = None
 
 
-class PollResponse(BaseModel):
-    id: str
+class PollOptionResult(BaseModel):
+    index: int
+    label: str
+    votes: int
+    percentage: int  # whole-number share of total_votes (0-100)
+
+
+class PollResult(BaseModel):
+    """Public poll payload. Aggregate counts/percentages are visible to everyone;
+    ``my_vote`` is the requesting user's own option index (None for guests and in
+    broadcasts), so an individual vote is never exposed with its owner."""
+
+    id: int
+    room_id: int
     question: str
-    options: dict[str, int]
-    votes: dict[str, str] = {}
+    options: list[PollOptionResult] = []
+    total_votes: int = 0
+    my_vote: int | None = None
     created_by: str = ""
     created_at: str | None = None
+    closes_at: str | None = None
+    closed: bool = False
 
 
 class RoomResponse(BaseModel):
     id: int
     match_id: int
     name: str
-    active_poll: dict | None = None
-    polls: list[PollResponse] = []
+    active_poll: PollResult | None = None
+    polls: list[PollResult] = []
     reactions: dict = {}
     watcher_count: int = 0
     participants: list[dict] = []
@@ -335,6 +350,12 @@ class MessageResponse(BaseModel):
 class PollCreate(BaseModel):
     question: str = Field(min_length=1, max_length=300)
     options: list[str] = Field(min_length=2, max_length=6)
+
+
+class PollVoteRequest(BaseModel):
+    # The option to vote for, by its position in the poll's options list. Accepts
+    # either {"option": 2} or {"option_index": 2}.
+    option_index: int = Field(ge=0, validation_alias=AliasChoices("option_index", "option"))
 
 
 class FollowTeamsRequest(BaseModel):

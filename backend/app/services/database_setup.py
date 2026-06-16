@@ -29,6 +29,8 @@ EXPECTED_TABLES: tuple[str, ...] = (
     "brackets",
     "rooms",
     "messages",
+    "polls",
+    "poll_votes",
     "api_cache",
 )
 

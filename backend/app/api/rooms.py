@@ -1,44 +1,37 @@
-from datetime import datetime, timezone
-
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_optional_user
 from app.db import get_db
-from app.models import Match, Message, Room, User
+from app.models import Match, Message, Poll, PollVote, Room, User
 from app.schemas import (
     MessageCreate,
     MessageResponse,
     PollCreate,
-    PollResponse,
+    PollResult,
+    PollVoteRequest,
     RoomCreate,
     RoomResponse,
     RoomSummaryItem,
 )
-from app.services.room_live import (
-    apply_vote,
-    broadcast_presence,
-    normalize_polls,
-    new_poll_id,
-    serialize_poll,
-    voter_key,
-)
+from app.services.polls import is_poll_closed, load_room_polls, serialize_one
 from app.services.room_reset import clear_room_user_content
 from app.websocket.gateway import ws_manager
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 
-def _room_response(room: Room) -> RoomResponse:
-    polls_raw = normalize_polls(room)
-    polls = [PollResponse(**serialize_poll(p)) for p in polls_raw]
+async def _room_response(
+    db: AsyncSession, room: Room, *, user_id: int | None = None
+) -> RoomResponse:
+    _, polls = await load_room_polls(db, room.id, user_id=user_id)
     participants = ws_manager.room_participants(room.id)
     return RoomResponse(
         id=room.id,
         match_id=room.match_id,
         name=room.name,
-        active_poll=serialize_poll(polls_raw[0]) if polls_raw else None,
+        active_poll=polls[0] if polls else None,
         polls=polls,
         reactions=dict(room.reactions or {}),
         watcher_count=len(participants),
@@ -88,21 +81,30 @@ async def create_room(
     room = Room(match_id=data.match_id, name=name, reactions={}, polls=[])
     db.add(room)
     await db.flush()
-    return _room_response(room)
+    return await _room_response(db, room, user_id=user.id if user else None)
 
 
 @router.get("/match/{match_id}", response_model=list[RoomResponse])
-async def rooms_for_match(match_id: int, db: AsyncSession = Depends(get_db)):
+async def rooms_for_match(
+    match_id: int,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(select(Room).where(Room.match_id == match_id))
-    return [_room_response(r) for r in result.scalars().all()]
+    uid = user.id if user else None
+    return [await _room_response(db, r, user_id=uid) for r in result.scalars().all()]
 
 
 @router.get("/{room_id}", response_model=RoomResponse)
-async def get_room(room_id: int, db: AsyncSession = Depends(get_db)):
+async def get_room(
+    room_id: int,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
     room = await db.get(Room, room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    return _room_response(room)
+    return await _room_response(db, room, user_id=user.id if user else None)
 
 
 # Chat is capped to the most recent events (chat + join/leave interleaved).
@@ -153,7 +155,34 @@ async def post_message(
     return MessageResponse.model_validate(msg)
 
 
-@router.post("/{room_id}/poll")
+@router.get("/{room_id}/polls", response_model=list[PollResult])
+async def list_polls(
+    room_id: int,
+    user: User | None = Depends(get_optional_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """All polls for a room with persisted aggregate results. For an authenticated
+    user, each poll also carries `my_vote` (the option they previously chose), so
+    results - and their own pick - survive leaving and rejoining the room."""
+    room = await db.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    _, polls = await load_room_polls(db, room_id, user_id=user.id if user else None)
+    return polls
+
+
+async def _broadcast_poll(db: AsyncSession, room_id: int, poll: Poll, event: str) -> None:
+    """Push aggregate-only results to the room channel. The payload never carries
+    any individual user's vote - `my_vote` is omitted (None) for every recipient."""
+    _, public = await load_room_polls(db, room_id, user_id=None)
+    changed = next((p for p in public if p["id"] == poll.id), None)
+    await ws_manager.broadcast(
+        ws_manager.room_channel(room_id),
+        {"type": event, "poll": changed, "polls": public},
+    )
+
+
+@router.post("/{room_id}/poll", response_model=PollResult)
 async def create_poll(
     room_id: int,
     data: PollCreate,
@@ -166,58 +195,53 @@ async def create_poll(
     options = [opt.strip() for opt in data.options if opt.strip()]
     if len(options) < 2:
         raise HTTPException(status_code=400, detail="At least two options required")
-    poll = {
-        "id": new_poll_id(),
-        "question": data.question.strip(),
-        "options": {opt: 0 for opt in options},
-        "votes": {},
-        "created_by": user.username,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    polls = [poll, *normalize_polls(room)]
-    room.polls = polls
-    room.active_poll = poll
-    await db.flush()
-    serialized = serialize_poll(poll)
-    await ws_manager.broadcast(
-        ws_manager.room_channel(room_id),
-        {"type": "poll_created", "poll": serialized, "polls": [serialize_poll(p) for p in polls]},
+    poll = Poll(
+        room_id=room_id,
+        question=data.question.strip(),
+        options=options,
+        created_by=user.username,
+        created_by_user_id=user.id,
     )
-    return serialized
+    db.add(poll)
+    await db.flush()
+    await _broadcast_poll(db, room_id, poll, "poll_created")
+    return await serialize_one(db, poll, user_id=user.id)
 
 
-@router.post("/{room_id}/poll/vote")
+@router.post("/{room_id}/polls/{poll_id}/vote", response_model=PollResult)
 async def vote_poll(
     room_id: int,
-    option: str,
-    poll_id: str | None = Query(default=None),
-    guest_id: str | None = Query(default=None),
-    user: User | None = Depends(get_optional_user),
+    poll_id: int,
+    data: PollVoteRequest,
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    room = await db.get(Room, room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    polls = normalize_polls(room)
-    if not polls:
-        raise HTTPException(status_code=404, detail="No polls in this room")
-    target = polls[0] if not poll_id else next((p for p in polls if p.get("id") == poll_id), None)
-    if not target:
+    """Cast or change the authenticated user's vote. Upserts one row per
+    (poll, user); re-voting updates the stored option. Returns the updated
+    aggregate plus this user's `my_vote`."""
+    poll = await db.get(Poll, poll_id)
+    if not poll or poll.room_id != room_id:
         raise HTTPException(status_code=404, detail="Poll not found")
-    key = voter_key(user.id if user else None, guest_id)
-    try:
-        apply_vote(target, option, key)
-    except ValueError:
+    if is_poll_closed(poll):
+        raise HTTPException(status_code=400, detail="This poll is closed")
+    if data.option_index >= len(poll.options or []):
         raise HTTPException(status_code=400, detail="Invalid option")
-    room.polls = polls
-    room.active_poll = polls[0]
+
+    existing = (
+        await db.execute(
+            select(PollVote).where(
+                PollVote.poll_id == poll_id, PollVote.user_id == user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        existing.option_index = data.option_index
+    else:
+        db.add(PollVote(poll_id=poll_id, user_id=user.id, option_index=data.option_index))
     await db.flush()
-    serialized = [serialize_poll(p) for p in polls]
-    await ws_manager.broadcast(
-        ws_manager.room_channel(room_id),
-        {"type": "poll_updated", "poll": serialize_poll(target), "polls": serialized},
-    )
-    return serialize_poll(target)
+
+    await _broadcast_poll(db, room_id, poll, "poll_updated")
+    return await serialize_one(db, poll, user_id=user.id)
 
 
 @router.post("/{room_id}/reactions")

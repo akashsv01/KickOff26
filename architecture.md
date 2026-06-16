@@ -105,7 +105,7 @@ For setup and day-to-day commands, see [README.md](./README.md).
 | `teams.py` | `/api/teams` | `GET ""` (list), `POST /follow` |
 | `matchday.py` | `/api/matchday` | `GET /matches`, `GET /matches/{id}`, `GET /days`, `GET /following`, `GET /live` |
 | `bracket.py` | `/api/bracket` | `GET /structure`, `GET /groups`, `GET /odds/{home}/{away}`, `POST /save[/groups|/knockout]`, `GET/DELETE /picks…`, `GET /mine`, `GET/POST /leaderboard…`, `POST /simulate[/quick|/sync]`, `GET /simulate/jobs/{id}`, `GET /poster/{team_code}` |
-| `rooms.py` | `/api/rooms` | `GET /summary`, `POST ""`, `GET /match/{id}`, `GET /{id}`, `GET/POST /{id}/messages`, `POST /{id}/poll`, `POST /{id}/poll/vote`, `POST /{id}/reactions` |
+| `rooms.py` | `/api/rooms` | `GET /summary`, `POST ""`, `GET /match/{id}`, `GET /{id}`, `GET/POST /{id}/messages`, `POST /{id}/poll`, `GET /{id}/polls`, `POST /{id}/polls/{poll_id}/vote`, `POST /{id}/reactions` |
 | `fanplan.py` | `/api/fanplan` | `GET /cities`, `POST /itinerary` |
 
 `app/api/deps.py` holds shared dependencies (DB session, current user from JWT).

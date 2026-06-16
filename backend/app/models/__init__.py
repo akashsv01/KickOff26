@@ -264,6 +264,9 @@ class Room(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"))
     name: Mapped[str] = mapped_column(String(200))
+    # Legacy JSON poll storage - superseded by the relational Poll / PollVote
+    # tables below. Kept (not dropped) so existing rows stay readable; the live
+    # poll flow no longer writes here.
     active_poll: Mapped[dict | None] = mapped_column(JsonField)
     polls: Mapped[list] = mapped_column(JsonField, default=list)
     reactions: Mapped[dict] = mapped_column(JsonField, default=dict)
@@ -271,6 +274,69 @@ class Room(Base):
 
     match: Mapped["Match"] = relationship(back_populates="rooms")
     messages: Mapped[list["Message"]] = relationship(back_populates="room")
+    poll_records: Mapped[list["Poll"]] = relationship(
+        back_populates="room",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Poll.created_at.desc(), Poll.id.desc()",
+    )
+
+
+class Poll(Base):
+    """Durable fan-room poll. Options are an ordered list of labels; a vote
+    references an option by its position (option_index)."""
+
+    __tablename__ = "polls"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    room_id: Mapped[int] = mapped_column(
+        ForeignKey("rooms.id", ondelete="CASCADE"), index=True
+    )
+    question: Mapped[str] = mapped_column(String(300))
+    options: Mapped[list] = mapped_column(JsonField, default=list)
+    created_by: Mapped[str] = mapped_column(String(100), default="")
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+    closes_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    room: Mapped["Room"] = relationship(back_populates="poll_records")
+    votes: Mapped[list["PollVote"]] = relationship(
+        back_populates="poll", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+
+class PollVote(Base):
+    """One row per (poll, user). UNIQUE(poll_id, user_id) enforces at most one
+    vote per user per poll; changing a vote updates option_index in place."""
+
+    __tablename__ = "poll_votes"
+    __table_args__ = (
+        UniqueConstraint("poll_id", "user_id", name="uq_poll_vote_user"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    poll_id: Mapped[int] = mapped_column(
+        ForeignKey("polls.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    option_index: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    poll: Mapped["Poll"] = relationship(back_populates="votes")
 
 
 class Message(Base):

@@ -1,64 +1,16 @@
-"""Live room helpers: presence broadcasts and join/leave system messages."""
+"""Live room helpers: presence broadcasts and join/leave system messages.
+
+Poll persistence and aggregation now live in ``app.services.polls`` (durable
+``polls`` / ``poll_votes`` tables); this module no longer handles polls.
+"""
 
 from __future__ import annotations
-
-import uuid
-from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Message, Room
 from app.schemas import MessageResponse
 from app.websocket.gateway import ws_manager
-
-
-def new_poll_id() -> str:
-    return uuid.uuid4().hex[:12]
-
-
-def normalize_polls(room: Room) -> list[dict]:
-    """Return polls list, migrating legacy active_poll when needed."""
-    polls = list(room.polls or [])
-    if not polls and room.active_poll:
-        legacy = dict(room.active_poll)
-        legacy.setdefault("id", new_poll_id())
-        legacy.setdefault("votes", {})
-        legacy.setdefault("created_at", datetime.now(timezone.utc).isoformat())
-        polls = [legacy]
-    return polls
-
-
-def serialize_poll(poll: dict) -> dict:
-    return {
-        "id": poll.get("id"),
-        "question": poll.get("question", ""),
-        "options": dict(poll.get("options") or {}),
-        "votes": dict(poll.get("votes") or {}),
-        "created_by": poll.get("created_by", ""),
-        "created_at": poll.get("created_at"),
-    }
-
-
-def voter_key(user_id: int | None, guest_id: str | None) -> str:
-    if user_id is not None:
-        return f"user:{user_id}"
-    gid = (guest_id or "anonymous").strip() or "anonymous"
-    return f"guest:{gid}"
-
-
-def apply_vote(poll: dict, option: str, key: str) -> dict:
-    options = poll.setdefault("options", {})
-    votes = poll.setdefault("votes", {})
-    if option not in options:
-        raise ValueError("Invalid option")
-    prev = votes.get(key)
-    if prev == option:
-        return poll
-    if prev and prev in options:
-        options[prev] = max(0, int(options.get(prev, 0)) - 1)
-    options[option] = int(options.get(option, 0)) + 1
-    votes[key] = option
-    return poll
 
 
 async def broadcast_presence(room_id: int, match_id: int) -> None:

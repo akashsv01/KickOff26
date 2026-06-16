@@ -9,11 +9,14 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { type Match } from "@/lib/matchday";
 import {
-  getGuestId,
+  mergeAggregatePolls,
+  optimisticVote,
+  replacePoll,
   summaryMap,
   type ReactionBurst,
   type RoomSummary,
   type WatchMessage,
+  type WatchPoll,
   type WatchRoom,
   WATCH_MESSAGE_CAP,
 } from "@/lib/watch";
@@ -44,7 +47,6 @@ function WatchPageContent() {
 
   const summaryByMatch = useMemo(() => summaryMap(summaries), [summaries]);
   const currentUsername = user?.username ?? "guest";
-  const guestId = useMemo(() => getGuestId(), []);
 
   const applyMatchUpdate = useCallback((updated: Match) => {
     setMatches((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
@@ -144,14 +146,19 @@ function WatchPageContent() {
         });
       }
       if (data.type === "poll_created" || data.type === "poll_updated") {
+        // Broadcasts carry aggregate counts only (my_vote === null for everyone);
+        // merge them in while preserving this client's own highlighted choice.
         if (data.polls) {
-          setRoom((prev) => (prev ? { ...prev, polls: data.polls as WatchRoom["polls"] } : prev));
+          setRoom((prev) =>
+            prev
+              ? { ...prev, polls: mergeAggregatePolls(prev.polls ?? [], data.polls as WatchPoll[]) }
+              : prev
+          );
         } else if (data.poll) {
           setRoom((prev) => {
             if (!prev) return prev;
-            const poll = data.poll as WatchRoom["polls"][0];
-            const polls = [poll, ...(prev.polls ?? []).filter((p) => p.id !== poll.id)];
-            return { ...prev, polls, active_poll: poll };
+            const merged = mergeAggregatePolls(prev.polls ?? [], [data.poll as WatchPoll]);
+            return { ...prev, polls: replacePoll(prev.polls ?? [], merged[0]) };
           });
         }
       }
@@ -213,10 +220,24 @@ function WatchPageContent() {
     });
   }
 
-  async function votePoll(pollId: string, option: string) {
-    if (!room) return;
-    const q = new URLSearchParams({ option, poll_id: pollId, guest_id: guestId });
-    await api(`/rooms/${room.id}/poll/vote?${q}`, { method: "POST" });
+  async function votePoll(pollId: number, optionIndex: number) {
+    if (!room || !user) return;
+    // Reflect the choice instantly, then reconcile with the authoritative response.
+    setRoom((prev) =>
+      prev ? { ...prev, polls: optimisticVote(prev.polls ?? [], pollId, optionIndex) } : prev
+    );
+    try {
+      const updated = await api<WatchPoll>(`/rooms/${room.id}/polls/${pollId}/vote`, {
+        method: "POST",
+        body: JSON.stringify({ option: optionIndex }),
+      });
+      setRoom((prev) => (prev ? { ...prev, polls: replacePoll(prev.polls ?? [], updated) } : prev));
+    } catch (err) {
+      console.error(err);
+      // On failure, reload the persisted state so the UI matches the server.
+      const fresh = await api<WatchPoll[]>(`/rooms/${room.id}/polls`).catch(() => null);
+      if (fresh) setRoom((prev) => (prev ? { ...prev, polls: fresh } : prev));
+    }
   }
 
   async function react(emoji: string) {

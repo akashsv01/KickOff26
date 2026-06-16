@@ -238,6 +238,69 @@ def _migrate_password_reset_columns(sync_conn) -> None:
         )
 
 
+def _migrate_poll_tables(sync_conn) -> None:
+    """Create the durable polls + poll_votes tables (idempotent, dialect-aware).
+
+    Base.metadata.create_all already creates these from the models on both fresh
+    and existing databases (it only adds missing tables); this explicit migration
+    is the documented schema + a safety net, mirroring _migrate_team_roster_table.
+
+    Votes live in poll_votes, so they survive a user leaving and rejoining a room.
+    UNIQUE(poll_id, user_id) gives each user at most one vote per poll, and the
+    ON DELETE CASCADE foreign keys drop a poll's votes when the poll (or its room)
+    is removed.
+    """
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    tables = set(insp.get_table_names())
+    pg = sync_conn.dialect.name == "postgresql"
+    pk = "SERIAL PRIMARY KEY" if pg else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    ts = "TIMESTAMP WITH TIME ZONE" if pg else "DATETIME"
+    now = "NOW()" if pg else "CURRENT_TIMESTAMP"
+    json_type = "JSONB" if pg else "JSON"
+    bool_false = "BOOLEAN NOT NULL DEFAULT FALSE" if pg else "BOOLEAN NOT NULL DEFAULT 0"
+
+    if "polls" not in tables:
+        sync_conn.execute(
+            text(
+                f"""
+                CREATE TABLE polls (
+                    id {pk},
+                    room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                    question VARCHAR(300) NOT NULL,
+                    options {json_type} NOT NULL,
+                    created_by VARCHAR(100) NOT NULL DEFAULT '',
+                    created_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                    closes_at {ts},
+                    closed {bool_false},
+                    created_at {ts} DEFAULT {now}
+                )
+                """
+            )
+        )
+        sync_conn.execute(text("CREATE INDEX ix_polls_room_id ON polls (room_id)"))
+
+    if "poll_votes" not in tables:
+        sync_conn.execute(
+            text(
+                f"""
+                CREATE TABLE poll_votes (
+                    id {pk},
+                    poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    option_index INTEGER NOT NULL,
+                    created_at {ts} DEFAULT {now},
+                    updated_at {ts} DEFAULT {now},
+                    CONSTRAINT uq_poll_vote_user UNIQUE (poll_id, user_id)
+                )
+                """
+            )
+        )
+        sync_conn.execute(text("CREATE INDEX ix_poll_votes_poll_id ON poll_votes (poll_id)"))
+        sync_conn.execute(text("CREATE INDEX ix_poll_votes_user_id ON poll_votes (user_id)"))
+
+
 async def init_db() -> None:
     from app import models  # noqa: F401
 
@@ -252,3 +315,4 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_match_event_added_time)
         await conn.run_sync(_migrate_match_scorers_reconciled)
         await conn.run_sync(_migrate_password_reset_columns)
+        await conn.run_sync(_migrate_poll_tables)

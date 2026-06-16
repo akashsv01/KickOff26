@@ -5,23 +5,28 @@ from __future__ import annotations
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Bracket, Match, Message, Room, Team, User
+from app.models import Bracket, Match, Message, Poll, PollVote, Room, Team, User
 
 
 async def clear_room_user_content(db: AsyncSession) -> dict:
     """
-    Remove all chat messages and reset reactions/polls on every room.
+    Remove all chat messages and poll votes, and reset reactions/polls on every room.
 
     Preserves rooms, matches, teams, users, brackets, and all other tables.
     """
     messages_deleted = (
         await db.execute(select(func.count()).select_from(Message))
     ).scalar_one()
+    polls_deleted = (await db.execute(select(func.count()).select_from(Poll))).scalar_one()
 
     rooms = (await db.execute(select(Room))).scalars().all()
     rooms_reset = len(rooms)
 
     await db.execute(delete(Message))
+    # Delete votes before polls so the wipe holds even where the FK cascade is
+    # not enforced (e.g. SQLite without PRAGMA foreign_keys).
+    await db.execute(delete(PollVote))
+    await db.execute(delete(Poll))
     for room in rooms:
         room.reactions = {}
         room.polls = []
@@ -29,6 +34,7 @@ async def clear_room_user_content(db: AsyncSession) -> dict:
 
     return {
         "messages_deleted": messages_deleted,
+        "polls_deleted": polls_deleted,
         "rooms_reset": rooms_reset,
     }
 

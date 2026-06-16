@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { Match } from "@/lib/matchday";
-import { matchResultPollPreset, type ReactionBurst, type WatchMessage, type WatchPoll, type WatchRoom } from "@/lib/watch";
+import { matchResultPollPreset, type ReactionBurst, type WatchMessage, type WatchRoom } from "@/lib/watch";
 import { FloatingReactions } from "./FloatingReactions";
 import { WatchChat } from "./WatchChat";
 import { WatchPolls } from "./WatchPolls";
@@ -21,7 +21,7 @@ type Props = {
   isLoggedIn: boolean;
   onSendMessage: (text: string) => Promise<void>;
   onCreatePoll: (question: string, options: string[]) => Promise<void>;
-  onVote: (pollId: string, option: string) => Promise<void>;
+  onVote: (pollId: number, optionIndex: number) => Promise<void>;
   onReact: (emoji: string) => Promise<void>;
 };
 
@@ -190,7 +190,7 @@ export function WatchRoomPanel({
             >
               <div className="watch-polls-scrollarea">
                 {polls.length > 0 ? (
-                  <WatchPolls polls={polls as WatchPoll[]} userId={userId} onVote={(id, opt) => onVote(id, opt)} />
+                  <WatchPolls polls={polls} isLoggedIn={isLoggedIn} onVote={(id, opt) => onVote(id, opt)} />
                 ) : (
                   <p className="watch-polls-empty">No active polls yet. Start one for the room.</p>
                 )}

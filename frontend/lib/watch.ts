@@ -1,13 +1,25 @@
 import type { Match } from "@/lib/matchday";
 import { formatKickoff, matchDateKey } from "@/lib/matchday";
 
+export type WatchPollOption = {
+  index: number;
+  label: string;
+  votes: number;
+  percentage: number;
+};
+
 export type WatchPoll = {
-  id: string;
+  id: number;
+  room_id: number;
   question: string;
-  options: Record<string, number>;
-  votes: Record<string, string>;
+  options: WatchPollOption[];
+  total_votes: number;
+  /** This user's chosen option index, or null. Aggregate broadcasts carry null. */
+  my_vote: number | null;
   created_by: string;
   created_at?: string | null;
+  closes_at?: string | null;
+  closed?: boolean;
 };
 
 export type WatchRoom = {
@@ -62,20 +74,6 @@ export const OFFICIAL_TOURNAMENT_LINKS = {
   broadcasters:
     "https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/fifa-world-cup-2026-broadcast-info",
 } as const;
-
-export function getGuestId(): string {
-  if (typeof window === "undefined") return "anonymous";
-  let id = localStorage.getItem("kickoff_guest_id");
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("kickoff_guest_id", id);
-  }
-  return id;
-}
-
-export function voterKey(userId: number | null | undefined, guestId: string): string {
-  return userId ? `user:${userId}` : `guest:${guestId}`;
-}
 
 export function matchStatusLabel(status: string): "LIVE" | "UPCOMING" | "FINISHED" {
   if (status === "live") return "LIVE";
@@ -150,8 +148,56 @@ export function formatMessageTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
-export function pollTotals(options: Record<string, number>): number {
-  return Object.values(options).reduce((a, b) => a + b, 0);
+/** Whole-number percentages for optimistic UI (server response is authoritative). */
+function withPercentages(options: WatchPollOption[], total: number): WatchPollOption[] {
+  return options.map((o) => ({
+    ...o,
+    percentage: total > 0 ? Math.round((o.votes / total) * 100) : 0,
+  }));
+}
+
+/**
+ * Optimistically reflect this user's vote before the server responds: move the
+ * count off any previous pick, onto the new one, and re-derive totals so the
+ * bars shift instantly. A no-op if the user already picked this option or the
+ * poll is closed.
+ */
+export function optimisticVote(
+  polls: WatchPoll[],
+  pollId: number,
+  optionIndex: number
+): WatchPoll[] {
+  return polls.map((poll) => {
+    if (poll.id !== pollId || poll.closed || poll.my_vote === optionIndex) return poll;
+    const options = poll.options.map((o) => ({ ...o }));
+    if (poll.my_vote != null && options[poll.my_vote]) {
+      options[poll.my_vote].votes = Math.max(0, options[poll.my_vote].votes - 1);
+    }
+    if (options[optionIndex]) options[optionIndex].votes += 1;
+    const total = options.reduce((a, o) => a + o.votes, 0);
+    return { ...poll, options: withPercentages(options, total), total_votes: total, my_vote: optionIndex };
+  });
+}
+
+/** Replace a poll by id with an authoritative payload (e.g. a vote response). */
+export function replacePoll(polls: WatchPoll[], updated: WatchPoll): WatchPoll[] {
+  let found = false;
+  const next = polls.map((p) => {
+    if (p.id !== updated.id) return p;
+    found = true;
+    return updated;
+  });
+  return found ? next : [updated, ...next];
+}
+
+/**
+ * Merge aggregate-only broadcasts (someone else voted) into local state. The
+ * broadcast carries my_vote === null for everyone, so we keep each poll's
+ * locally-known my_vote - the user's highlighted choice never flickers off.
+ */
+export function mergeAggregatePolls(prev: WatchPoll[], incoming: WatchPoll[]): WatchPoll[] {
+  const prevById = new Map(prev.map((p) => [p.id, p]));
+  return incoming.map((p) => ({ ...p, my_vote: p.my_vote ?? prevById.get(p.id)?.my_vote ?? null }));
 }
 
 export function matchResultPollPreset(homeCode: string, awayCode: string) {

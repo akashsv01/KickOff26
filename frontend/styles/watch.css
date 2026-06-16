@@ -1162,6 +1162,46 @@
   color: var(--app-text-faint);
 }
 
+.watch-poll-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.watch-poll-meta .watch-poll-by {
+  margin-top: 0;
+}
+
+.watch-poll-closed {
+  font-size: 0.5625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted);
+  border: 1px solid color-mix(in srgb, var(--app-border) 70%, transparent);
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+}
+
+.watch-poll-total {
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Read-only options (not logged in, or a closed poll): results still show,
+   but the option is not a live vote target. */
+.watch-poll-option-readonly {
+  cursor: default;
+}
+
+.watch-poll-option-readonly:not(.watch-poll-option-selected):hover {
+  border-color: color-mix(in srgb, var(--app-border) 72%, transparent);
+}
+
 .watch-poll-options {
   list-style: none;
   margin: 0.75rem 0 0;
