@@ -706,3 +706,217 @@
   outline: 2px solid var(--app-gold);
   outline-offset: 2px;
 }
+
+/* ---- Stadiums: list cards ---- */
+.stadium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.stadium-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  height: 100%;
+  border-radius: var(--md-radius-md, 0.875rem);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  padding: 1.15rem 1.25rem;
+  text-decoration: none;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.stadium-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--app-gold) 50%, var(--app-border));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25),
+    0 0 0 1px color-mix(in srgb, var(--app-gold) 25%, transparent);
+}
+
+.stadium-card:focus-visible {
+  outline: 2px solid var(--app-gold);
+  outline-offset: 2px;
+}
+
+.stadium-card-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-gold);
+}
+
+.stadium-card-name {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--app-text);
+}
+
+.stadium-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.45rem;
+}
+
+.meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  color: var(--app-text-secondary);
+  background: color-mix(in srgb, var(--app-gold) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--app-gold) 20%, var(--glass-border));
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+}
+
+.meta-chip svg {
+  color: var(--app-gold);
+}
+
+/* ---- Stadiums: detail hero ---- */
+.stadium-hero {
+  margin-top: 0.75rem;
+  border-radius: var(--md-radius-md, 0.875rem);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--app-gold);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--app-gold) 8%, var(--glass-bg)),
+    var(--glass-bg)
+  );
+  padding: 1.5rem 1.5rem 1.35rem;
+}
+
+.stadium-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.stadium-hero-icon {
+  color: var(--app-gold);
+  flex-shrink: 0;
+}
+
+/* ---- Stadiums: match rows ---- */
+.stadium-match-row {
+  display: grid;
+  grid-template-columns: 7rem 1fr 6.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.6rem;
+  text-decoration: none;
+  transition: background 160ms ease;
+}
+
+.stadium-match-row:hover {
+  background: color-mix(in srgb, var(--app-gold) 7%, transparent);
+}
+
+.stadium-match-time {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text-muted);
+}
+
+.stadium-match-teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 650;
+  color: var(--app-text);
+}
+
+.stadium-match-score {
+  padding: 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text);
+}
+
+.stadium-match-vs {
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--app-text-faint);
+}
+
+.stadium-match-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.stadium-grp-chip {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--app-text-muted);
+  background: color-mix(in srgb, var(--app-border) 45%, transparent);
+  padding: 0.14rem 0.45rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+/* ---- Reusable match status badges ---- */
+.match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  padding: 0.16rem 0.5rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.match-badge-live {
+  color: #fff;
+  background: color-mix(in srgb, var(--app-danger) 85%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--app-danger) 40%, transparent);
+}
+
+.match-badge-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background: #fff;
+  animation: match-badge-pulse 1.2s ease-in-out infinite;
+}
+
+.match-badge-ft {
+  color: var(--app-text-secondary);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--app-gold) 35%, var(--app-border));
+}
+
+@keyframes match-badge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}

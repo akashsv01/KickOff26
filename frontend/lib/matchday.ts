@@ -42,6 +42,7 @@ export type Match = {
   stage?: string | null;
   group_letter?: string | null;
   country?: string | null;
+  stadium_id?: number | null; // links to the stadium view
   scorers_reconciled?: boolean; // false on a FINISHED match = score final, scorer detail incomplete
   events?: MatchEvent[];
   model_context?: ModelContext;

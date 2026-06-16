@@ -6,7 +6,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, bracket, chat, fanplan, matchday, rooms, teams, users
+from app.api import auth, bracket, chat, fanplan, matchday, rooms, stadiums, teams, users
 from app.config import settings
 from app.db import async_session, init_db
 from app.services.data_ingestion import DataIngestionService
@@ -121,6 +121,7 @@ app.include_router(teams.router, prefix="/api")
 app.include_router(bracket.router, prefix="/api")
 app.include_router(matchday.router, prefix="/api")
 app.include_router(rooms.router, prefix="/api")
+app.include_router(stadiums.router, prefix="/api")
 app.include_router(fanplan.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(ws_router)

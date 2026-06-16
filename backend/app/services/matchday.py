@@ -117,6 +117,7 @@ def match_to_dict(
         # Integrity signal for the UI: when False on a FINISHED match the score is
         # final but the API's scorer detail was incomplete (show what we have + a note).
         "scorers_reconciled": bool(match.scorers_reconciled),
+        "stadium_id": match.stadium_id,  # for linking to the stadium view
         "stage": match.stage,
         "group_letter": match.group_letter,
         "kickoff_at": match.kickoff_at.isoformat() if match.kickoff_at else None,

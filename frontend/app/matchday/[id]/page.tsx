@@ -126,10 +126,20 @@ export default function MatchDetailPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-1.5 text-sm text-app-muted">
               <PinIcon className="h-4 w-4 shrink-0 text-champagne" />
-              <span>
-                {match.city}
-                {match.venue ? `, ${match.venue}` : ""}
-              </span>
+              {match.stadium_id ? (
+                <Link
+                  href={`/stadiums/${match.stadium_id}`}
+                  className="hover:text-champagne hover:underline"
+                >
+                  {match.city}
+                  {match.venue ? `, ${match.venue}` : ""}
+                </Link>
+              ) : (
+                <span>
+                  {match.city}
+                  {match.venue ? `, ${match.venue}` : ""}
+                </span>
+              )}
             </span>
             {isLive ? (
               <LiveBadge minute={match.minute} />
