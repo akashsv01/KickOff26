@@ -201,8 +201,9 @@ export default function MatchDetailPage() {
             <MatchTimeline match={match} events={events} isFinished={isFinished} />
             {isFinished && match.scorers_reconciled === false && (
               <p className="mt-4 text-xs text-app-faint">
-                Some scorer details are unavailable for this match. The final score is correct -
-                a few goalscorers were not provided by the data source.
+                Some goalscorer details weren&apos;t provided by the data source. The final score
+                is correct - we re-check periodically and will fill these in if they become
+                available.
               </p>
             )}
           </div>

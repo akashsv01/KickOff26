@@ -36,7 +36,7 @@ export function MatchCard({
       data-testid="match-card-link"
       data-match-id={m.id}
       data-href={href}
-      className="md-match-card-link block no-underline"
+      className="md-match-card-link block h-full no-underline"
       onClick={(e) => matchCardClick(e, goToDetail)}
       onKeyDown={(e) => matchCardKeyDown(e, goToDetail)}
     >
@@ -45,7 +45,7 @@ export function MatchCard({
           glassCardClass(hero ? "live" : "default", true),
           hero ? "md-glass-hero p-6 sm:p-8" : "p-5",
           isLive && !hero ? "md-glass-live" : "",
-          "md-animate-in",
+          "md-animate-in h-full",
         ]
           .filter(Boolean)
           .join(" ")}

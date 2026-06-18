@@ -32,9 +32,16 @@ Safety
     ``DATABASE_URL`` at Neon and run again to keep both identical.
 
 Usage (from backend/)
-    python -m app.jobs.backfill_scorers                # dry-run against $DATABASE_URL
-    python -m app.jobs.backfill_scorers --apply        # write changes
+    python -m app.jobs.backfill_scorers                     # dry-run, all live/finished
+    python -m app.jobs.backfill_scorers --apply             # write changes (deep clean)
+    python -m app.jobs.backfill_scorers --apply --unreconciled  # recurring self-heal scope
     # then, with DATABASE_URL set to the Neon connection string, repeat.
+
+The ``--unreconciled`` flag narrows the scan to finished matches whose
+``scorers_reconciled`` is not true - the exact set that still shows the
+"details unavailable" note. It is idempotent and cheap, so it is the form to
+schedule as a recurring job: reconciled matches fall out of the scan, and
+matches the feed still can't complete simply stay flagged (honest).
 """
 
 from __future__ import annotations
@@ -43,7 +50,7 @@ import argparse
 import asyncio
 import logging
 
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -139,9 +146,14 @@ async def _require_schema() -> None:
         )
 
 
-async def backfill(apply: bool) -> int:
+async def backfill(apply: bool, unreconciled_only: bool = False) -> int:
     print(f"Database: {database_url_label(settings.database_url)}")
     print(f"Mode: {'APPLY (writing)' if apply else 'DRY-RUN (no writes)'}")
+    print(
+        "Scope: finished + unreconciled only"
+        if unreconciled_only
+        else "Scope: all live/finished (deep clean)"
+    )
 
     client = WorldCupApiClient()
     if not client.configured:
@@ -169,18 +181,33 @@ async def backfill(apply: bool) -> int:
     print(f"Fetched {len(games_by_oid)} games from the live API.")
 
     async with async_session() as db:
+        if unreconciled_only:
+            # Recurring self-heal scope: only finished matches that still carry
+            # the "details unavailable" note (scorers_reconciled not True).
+            # Idempotent - once a match reconciles it drops out of this scan.
+            scope = (
+                Match.status == MatchStatus.FINISHED,
+                or_(
+                    Match.scorers_reconciled.is_(False),
+                    Match.scorers_reconciled.is_(None),
+                ),
+            )
+        else:
+            # Deep one-off clean: all live/finished. Besides reconciling, this
+            # also collapses duplicate goal rows, which can exist regardless of
+            # the reconciled flag.
+            scope = (Match.status.in_([MatchStatus.LIVE, MatchStatus.FINISHED]),)
+
         matches = (
             await db.execute(
                 select(Match)
                 .options(selectinload(Match.home_team), selectinload(Match.away_team))
-                # Scan all live/finished matches: besides reconciling, this is a
-                # one-off cleanup that also collapses any duplicate goal rows,
-                # which can exist regardless of the reconciled flag.
-                .where(Match.status.in_([MatchStatus.LIVE, MatchStatus.FINISHED]))
+                .where(*scope)
                 .order_by(Match.id)
             )
         ).scalars().all()
-        print(f"Scanning {len(matches)} live/finished matches.\n")
+        scope_label = "finished unreconciled" if unreconciled_only else "live/finished"
+        print(f"Scanning {len(matches)} {scope_label} matches.\n")
 
         for match in matches:
             scanned += 1
@@ -289,8 +316,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Persist changes. Without it the script is a dry-run (default).",
     )
+    parser.add_argument(
+        "--unreconciled",
+        action="store_true",
+        help=(
+            "Recurring-job scope: only finished matches where "
+            "scorers_reconciled is not true. Idempotent and cheap - safe to "
+            "schedule. Without it, scans all live/finished (one-off deep clean)."
+        ),
+    )
     args = parser.parse_args(argv)
-    return asyncio.run(backfill(apply=args.apply))
+    return asyncio.run(backfill(apply=args.apply, unreconciled_only=args.unreconciled))
 
 
 if __name__ == "__main__":

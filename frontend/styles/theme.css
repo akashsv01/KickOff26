@@ -376,7 +376,10 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  font: inherit;
+  /* Inherit family + size but NOT weight, so the .nav-link / .nav-link-active
+     class controls weight and "Explore" matches the other top-level links. */
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .nav-dropdown-caret {
@@ -403,6 +406,17 @@
   box-shadow: var(--glass-shadow-hover, 0 16px 40px rgba(0, 0, 0, 0.28));
   backdrop-filter: blur(12px);
   animation: nav-dropdown-in 150ms var(--md-ease-out, ease);
+}
+
+/* Invisible bridge spanning the small offset between the trigger and the
+   panel, so the pointer never crosses a dead zone (no hover gap). */
+.nav-dropdown-menu::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -0.4rem;
+  height: 0.4rem;
 }
 
 @keyframes nav-dropdown-in {

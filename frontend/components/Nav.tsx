@@ -33,7 +33,12 @@ function isPathActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Desktop "Explore" dropdown: hover or click to open, keyboard + outside-click aware. */
+/**
+ * Desktop "Explore" dropdown. Click-to-toggle (no hover-open, so there is no
+ * dead zone between the button and the panel): the menu stays open until the
+ * user clicks an item, clicks outside, or presses Escape. Fully keyboard- and
+ * touch-accessible.
+ */
 function NavDropdown({
   label,
   items,
@@ -45,20 +50,36 @@ function NavDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const parentActive = items.some((i) => isPathActive(pathname, i.href));
 
+  const close = (returnFocus = false) => {
+    setOpen(false);
+    if (returnFocus) buttonRef.current?.focus();
+  };
+
+  // Move roving focus between menu items (wraps); reads the live DOM so we
+  // don't have to thread refs through next/link.
+  const focusItemAt = (index: number) => {
+    const nodes = ref.current?.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]');
+    if (!nodes || nodes.length === 0) return;
+    const next = (index + nodes.length) % nodes.length;
+    nodes[next]?.focus();
+  };
+
+  // Close on outside pointer (mouse + touch + pen) and on Escape.
   useEffect(() => {
     if (!open) return;
-    function onDown(e: MouseEvent) {
+    function onPointerDown(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") close(true);
     }
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -68,19 +89,57 @@ function NavDropdown({
     setOpen(false);
   }, [pathname]);
 
+  function onTriggerKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      requestAnimationFrame(() => focusItemAt(0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setOpen(true);
+      requestAnimationFrame(() => focusItemAt(-1));
+    }
+  }
+
+  function onItemKeyDown(e: React.KeyboardEvent<HTMLAnchorElement>, index: number) {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        focusItemAt(index + 1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        focusItemAt(index - 1);
+        break;
+      case "Home":
+        e.preventDefault();
+        focusItemAt(0);
+        break;
+      case "End":
+        e.preventDefault();
+        focusItemAt(-1);
+        break;
+      case "Escape":
+        e.preventDefault();
+        close(true);
+        break;
+      case "Tab":
+        // Let focus leave naturally, but don't leave an orphaned open menu.
+        setOpen(false);
+        break;
+    }
+  }
+
   return (
-    <div
-      ref={ref}
-      className="nav-dropdown"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-    >
+    <div ref={ref} className="nav-dropdown">
       <button
+        ref={buttonRef}
         type="button"
         className={`nav-dropdown-trigger ${parentActive ? "nav-link-active" : "nav-link"}`}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={onTriggerKeyDown}
       >
         {label}
         <svg
@@ -99,14 +158,16 @@ function NavDropdown({
         </svg>
       </button>
       {open && (
-        <div className="nav-dropdown-menu" role="menu">
-          {items.map((i) => (
+        <div className="nav-dropdown-menu" role="menu" aria-label={label}>
+          {items.map((i, idx) => (
             <Link
               key={i.href}
               href={i.href}
               role="menuitem"
+              tabIndex={-1}
               className={`nav-dropdown-item${isPathActive(pathname, i.href) ? " nav-dropdown-item-active" : ""}`}
-              onClick={() => setOpen(false)}
+              onClick={() => close()}
+              onKeyDown={(e) => onItemKeyDown(e, idx)}
             >
               {i.label}
             </Link>

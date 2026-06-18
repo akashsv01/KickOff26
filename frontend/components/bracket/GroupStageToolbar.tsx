@@ -4,6 +4,7 @@ import {
   BracketPersistActions,
   type BracketPersistScope,
 } from "@/components/bracket/BracketPersistActions";
+import { SimulationModeToggle } from "@/components/bracket/SimulationModeToggle";
 
 type Props = {
   decided: number;
@@ -55,43 +56,7 @@ export function GroupStageToolbar({
               />
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-app-faint/30 bg-app/10 px-2 py-1 text-sm">
-            <span
-              className={`rounded-full px-2 py-0.5 transition ${
-                !upsets
-                  ? "bg-app/15 font-extrabold text-app ring-1 ring-app-faint/25"
-                  : "font-medium text-app-faint"
-              }`}
-            >
-              Realistic
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={upsets}
-              className={`relative h-6 w-12 rounded-full border transition-all duration-200 ${
-                upsets
-                  ? "border-champagne/70 bg-champagne/35 shadow-[0_0_12px_rgba(212,175,55,0.22)]"
-                  : "border-app-faint/40 bg-app-faint/20"
-              }`}
-              onClick={() => onUpsetsChange(!upsets)}
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full shadow transition-all duration-200 ${
-                  upsets ? "left-[26px] bg-champagne" : "left-0.5 bg-app"
-                }`}
-              />
-            </button>
-            <span
-              className={`rounded-full px-2 py-0.5 transition ${
-                upsets
-                  ? "bg-champagne/20 font-extrabold text-champagne ring-1 ring-champagne/35"
-                  : "font-medium text-app-faint"
-              }`}
-            >
-              Upsets
-            </span>
-          </div>
+          <SimulationModeToggle upsets={upsets} onChange={onUpsetsChange} />
         </div>
 
         <div className="flex flex-wrap items-start gap-3">

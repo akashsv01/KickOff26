@@ -33,15 +33,16 @@
 
 ## ✨ Features
 
-> The in-app navigation uses friendly labels (routes in parentheses): **Live Matches** (`/matchday`), **Standings** (`/standings`), **Teams** (`/teams`), **Predictions** (`/bracket`), **Travel Planner** (`/fanplan`), **Following** (`/following`), **Fan Rooms** (`/watch`), **Resources** (`/resources`).
+> The in-app navigation uses friendly labels (routes in parentheses): **Live Matches** (`/matchday`), **Standings** (`/standings`), **Explore** (a dropdown grouping **Teams** (`/teams`) and **Stadiums** (`/stadiums`)), **Predictions** (`/bracket`), **Travel Planner** (`/fanplan`), **Following** (`/following`), **Fan Rooms** (`/watch`), **Resources** (`/resources`).
 
 | Module | What it does |
 |--------|--------------|
 | 🔴 **Live Matches** (`/matchday`) | Live scores dashboard backed by a self-built Poisson/Elo win-probability model, a personalized following feed, match detail pages with event timelines, **kickoff countdown timers**, timezone-aware kickoff times, and momentum alerts pushed over WebSocket. |
 | 🏆 **Predictions / Bracket** (`/bracket`) | Build group-stage and knockout picks by hand, or run a **Monte Carlo simulator** (1k / 10k / 50k runs) in a background process pool for advancement and champion odds. Export your knockout bracket as a shareable PNG or PDF. |
 | ✈️ **Travel Planner** (`/fanplan`) | A multi-city itinerary optimizer that picks the best set of matches to attend across the 16 host cities given your followed teams, budget, and travel constraints - with estimated ticket and travel costs, rendered on an interactive Leaflet map and exportable to PDF. |
-| 💬 **Fan Rooms** (`/watch`) | Per-match real-time chat rooms with live presence, custom polls, and floating emoji reactions. Viewing is open to everyone; sending messages and creating polls requires login. |
+| 💬 **Fan Rooms** (`/watch`) | Per-match real-time chat rooms with live presence, **persistent polls**, and floating emoji reactions. Poll votes are stored in the database, so results survive leaving and rejoining a room; a returning voter sees the aggregate percentages plus their own choice highlighted, while live updates broadcast aggregate counts only (never who voted what). Viewing is open to everyone; sending messages and voting require login. |
 | **Teams** (`/teams`) | All 48 nations grouped A-L with flags and team codes, plus a per-team view: squads, coaches, fixtures, venues, and a player to watch. |
+| 🏟️ **Stadiums** (`/stadiums`) | All 16 host venues across the US, Canada, and Mexico with city, country, and capacity; open one to see its full match schedule grouped by stage, with timezone-aware kickoff times, live scores, and LIVE/FT status. |
 | **Standings** (`/standings`) | Live group tables for all 12 groups with real tiebreakers (points, GD, GF). Top 2 of each group plus the 8 best third-placed teams are highlighted, updating in real time as scores change. |
 | 👤 **Accounts & profile** (`/auth`, `/profile`) | Email/password signup with your favorite nation, country, auto-detected timezone, and a daily-digest opt-in. View, edit, or delete your account on the profile page, and **reset a forgotten password by email**. JWT auth with bcrypt-hashed passwords. |
 | 🔔 **Notifications** | Real-time kickoff, goal, and full-time alerts from one shared store, surfaced in both the nav bell dropdown and the matchday sidebar panel. |
@@ -195,6 +196,8 @@ Copy `.env.example` to `.env` and fill in values. Backend settings live in `.env
 
 **Daily-digest scheduling (pick one).** Either set `ENABLE_DIGEST_SCHEDULER=true` to run the in-process APScheduler loop, **or** run a DigitalOcean App Platform Scheduled Job (`python -m app.jobs.daily_digest`) every 15-30 min. The job is idempotent (one digest per user per local day) and only sends inside each user's window, so frequent runs are safe. Do not enable both.
 
+**Scorer self-heal (recurring job).** Finished matches are never re-polled by the live poller, so a match the feed published with incomplete goalscorers stays flagged with a "details unavailable" note. Schedule a DigitalOcean App Platform Scheduled Job running `python -m app.jobs.backfill_scorers --apply --unreconciled` (e.g. every few hours) to re-check those matches and fill in scorers once the API serves a clean, count-matching payload. The `--unreconciled` scope only touches finished matches whose `scorers_reconciled` is not true, so it is idempotent and cheap - reconciled matches drop out of the scan, and matches the feed still can't complete simply stay flagged (honest). Requires `WORLDCUP_API_TOKEN`.
+
 Maintenance:
 
 | Task | Command |
@@ -202,7 +205,8 @@ Maintenance:
 | Re-sync tournament reference data | `python scripts/sync_worldcup_api.py` or `POST /api/matchday/worldcup/sync` |
 | Re-seed bundled squads | `python scripts/seed_team_rosters.py` or `POST /api/teams/rosters/resync` |
 | Send due daily digests (scheduled job) | `python -m app.jobs.daily_digest` (every 15-30 min) |
-| Clean up scorer/timeline data (one-off) | `python -m app.jobs.backfill_scorers` (`--apply` to write) |
+| Self-heal incomplete scorers (scheduled job) | `python -m app.jobs.backfill_scorers --apply --unreconciled` (finished + unreconciled only; idempotent) |
+| Deep-clean scorer/timeline data (one-off) | `python -m app.jobs.backfill_scorers` (`--apply` to write; scans all live/finished) |
 | Clear watch-room content only | `python scripts/clear_room_content.py --confirm` |
 | Check relational integrity | `python scripts/verify_db_integrity.py` |
 
@@ -221,10 +225,10 @@ KickOff26/
 │   │   ├── models/__init__.py # SQLAlchemy ORM models (JSON/JSONB variant)
 │   │   ├── schemas/           # Pydantic request/response models
 │   │   ├── auth/              # JWT + bcrypt, single-use password-reset tokens, user lookups
-│   │   ├── api/               # HTTP routers: auth, users, teams, matchday, bracket, rooms, fanplan, chat
+│   │   ├── api/               # HTTP routers: auth, users, teams, stadiums, matchday, bracket, rooms, fanplan, chat
 │   │   ├── services/          # Business logic (worldcup poller/sync, simulator, email + digest, ...)
 │   │   ├── data/              # country_timezones map (display label -> IANA zone)
-│   │   ├── jobs/              # daily_digest (scheduled), backfill_scorers (one-off cleanup)
+│   │   ├── jobs/              # daily_digest + backfill_scorers (both schedulable; backfill --unreconciled self-heals)
 │   │   └── websocket/         # /ws handler + shared channel gateway (ws_manager)
 │   ├── data/                  # Bundled openfootball schedule, squads, ticket estimates (JSON)
 │   ├── scripts/               # setup helpers, get_worldcup_token.py, sync/seed scripts

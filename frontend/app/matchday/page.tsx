@@ -14,7 +14,6 @@ import {
   dayCountsFromMatches,
   defaultMatchDay,
   formatDayLabel,
-  groupByKickoffSlot,
   matchesForDay,
   shouldShowAlert,
   sortDayMatches,
@@ -55,11 +54,6 @@ export default function MatchDayPage() {
   const scheduledMatches = useMemo(
     () => dayMatches.filter((m) => m.status !== "live"),
     [dayMatches]
-  );
-
-  const slotGroups = useMemo(
-    () => groupByKickoffSlot(scheduledMatches, zone),
-    [scheduledMatches, zone]
   );
 
   const primaryLiveMatch = liveMatches[0] ?? matches.find((m) => m.status === "live") ?? null;
@@ -256,29 +250,31 @@ export default function MatchDayPage() {
             </div>
           ) : (
             <div key={selectedDay}>
+              {/* LIVE: each live match is its own full-width featured hero. */}
               {liveMatches.length > 0 && (
-                <div className="md-live-hero-anchor space-y-4">
+                <div className="md-live-hero-anchor mb-6 space-y-4">
                   {liveMatches.map((m, i) => (
                     <MatchCard key={m.id} match={m} hero staggerIndex={i} />
                   ))}
                 </div>
               )}
 
+              {/* NON-LIVE (finished + scheduled): ONE continuous responsive grid
+                  so cards actually tile two-per-row and fill the column. A grid
+                  per kickoff slot can never be 2-up because two teams in a group
+                  never kick off at once, so every slot holds exactly one match -
+                  that was why earlier "2 per row" attempts still looked
+                  single-column. Group + kickoff time stay on each card. Cards are
+                  equal-height (items-stretch + h-full). Collapses to 1 column on
+                  narrow screens. */}
               {scheduledMatches.length > 0 && (
-                <div className="space-y-6">
-                  {Object.entries(slotGroups).map(([slot, list]) => (
-                    <div key={slot}>
-                      <h3 className="md-label mb-3">{slot}</h3>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        {list.map((m, i) => (
-                          <MatchCard
-                            key={m.id}
-                            match={m}
-                            staggerIndex={liveMatches.length + i}
-                          />
-                        ))}
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
+                  {scheduledMatches.map((m, i) => (
+                    <MatchCard
+                      key={m.id}
+                      match={m}
+                      staggerIndex={liveMatches.length + i}
+                    />
                   ))}
                 </div>
               )}
