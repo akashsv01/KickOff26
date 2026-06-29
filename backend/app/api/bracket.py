@@ -9,12 +9,21 @@ from app.db import get_db
 from app.models import Bracket, Match, MatchStatus, Team, User
 from app.schemas import BracketPicksResponse, BracketResponse, BracketSaveRequest, SimulateRequest
 from app.services.match_resolver import resolve_match_probs
+from app.services.openfootball import OFFICIAL_EXTERNAL_PREFIX
 from app.services.poster import generate_champion_poster
 from app.services.sim_job_manager import SimJobConflictError, sim_job_manager
 from app.services.simulator import get_group_match_probs
 from app.services.tournament_2026 import KNOCKOUT_ROUNDS
 
 router = APIRouter(prefix="/bracket", tags=["bracket"])
+
+
+def _official_match_no(external_id: str | None) -> int | None:
+    """Official WC match number from an external id, e.g. ``wc2026-m073`` -> 73."""
+    if not external_id:
+        return None
+    tail = external_id.rsplit("m", 1)[-1]
+    return int(tail) if tail.isdigit() else None
 
 
 def _compute_group_standings(matches: list[Match]) -> dict[str, list[dict]]:
@@ -140,11 +149,48 @@ async def get_structure(db: AsyncSession = Depends(get_db)):
                 for i, t in enumerate(team_list, start=1)
             ]
 
+    # Resolved knockout fixtures from the matches table. Once the API sets the
+    # bracket (e.g. the Round of 32 after group play), these slots carry the real
+    # qualified teams, scores, and status; unresolved rounds keep their labels.
+    ko_result = await db.execute(
+        select(Match)
+        .options(selectinload(Match.home_team), selectinload(Match.away_team))
+        .where(Match.stage != "group", Match.external_id.like(f"{OFFICIAL_EXTERNAL_PREFIX}%"))
+    )
+    ko_by_stage: dict[str, list[Match]] = {}
+    for m in ko_result.scalars().all():
+        ko_by_stage.setdefault(m.stage, []).append(m)
+    for stage_matches in ko_by_stage.values():
+        stage_matches.sort(key=lambda x: _official_match_no(x.external_id) or 0)
+
     knockout = []
     for rnd in KNOCKOUT_ROUNDS:
+        stage_matches = ko_by_stage.get(rnd["id"], [])
         slots = []
         for i in range(1, rnd["matches"] + 1):
-            slots.append({"slot": f"{rnd['id']}-{i}", "label": f"Match {i}"})
+            slot = {"slot": f"{rnd['id']}-{i}", "label": f"Match {i}"}
+            m = stage_matches[i - 1] if i - 1 < len(stage_matches) else None
+            if (
+                m
+                and m.home_team
+                and m.away_team
+                and m.home_team.code in official_codes
+                and m.away_team.code in official_codes
+            ):
+                slot.update(
+                    {
+                        "match_id": m.id,
+                        "home": {"code": m.home_team.code, "name": m.home_team.name},
+                        "away": {"code": m.away_team.code, "name": m.away_team.name},
+                        "home_score": m.home_score,
+                        "away_score": m.away_score,
+                        "status": m.status.value,
+                        "kickoff_at": m.kickoff_at.isoformat() if m.kickoff_at else None,
+                        "city": m.city,
+                        "venue": m.venue,
+                    }
+                )
+            slots.append(slot)
         knockout.append({"id": rnd["id"], "label": rnd["label"], "slots": slots})
 
     return {

@@ -178,6 +178,47 @@ async def _find_schedule_match(
     return (await db.execute(q)).scalar_one_or_none()
 
 
+async def _find_knockout_slot(db: AsyncSession, official_no: int | None) -> Match | None:
+    """Locate a pre-seeded knockout bracket slot by official WC match number.
+
+    For knockout games the API's sequential ``id`` is the official match number
+    (e.g. 73), which the openfootball seed encodes as ``wc2026-m073``. The slot
+    rows carry placeholder teams (``2A`` vs ``2B``); we keep the slot (and its
+    bracket-tree position) and fill in the real qualified teams from the feed.
+    """
+    if not official_no:
+        return None
+    ext = f"{OFFICIAL_EXTERNAL_PREFIX}{official_no:03d}"
+    return (
+        await db.execute(
+            select(Match)
+            .options(selectinload(Match.home_team), selectinload(Match.away_team))
+            .where(Match.external_id == ext)
+        )
+    ).scalar_one_or_none()
+
+
+def _slot_code_from_label(label: str | None) -> str | None:
+    """Map an API knockout seeding label to the bracket placeholder code.
+
+    ``"Winner Group E" -> "1E"``, ``"Runner-up Group C" -> "2C"``,
+    ``"3rd Group A/B/C/D/F" -> "3ABCDF"``. Returns None if unrecognized.
+    Used only as a sanity assertion against the match-number slot mapping.
+    """
+    if not label:
+        return None
+    s = label.strip()
+    low = s.lower()
+    if low.startswith("winner group "):
+        return "1" + s.rsplit(" ", 1)[-1].upper()
+    if low.startswith("runner-up group ") or low.startswith("runner up group "):
+        return "2" + s.rsplit(" ", 1)[-1].upper()
+    if low.startswith("3rd group ") or low.startswith("third group "):
+        groups = s.split("roup", 1)[-1]
+        return "3" + "".join(ch for ch in groups.upper() if ch.isalpha())
+    return None
+
+
 async def upsert_games(
     db: AsyncSession,
     raw_games: list[dict],
@@ -185,7 +226,7 @@ async def upsert_games(
     teams_by_seq: dict[str, Team],
     stadiums_by_seq: dict[str, Stadium],
 ) -> dict[str, int]:
-    stats = {"linked": 0, "updated": 0, "skipped": 0, "unresolved_teams": 0}
+    stats = {"linked": 0, "updated": 0, "skipped": 0, "unresolved_teams": 0, "knockout": 0}
 
     for game in raw_games:
         if not isinstance(game, dict):
@@ -210,18 +251,52 @@ async def upsert_games(
         stadium = stadiums_by_seq.get(stadium_seq)
 
         match = (
-            await db.execute(select(Match).where(Match.api_object_id == oid))
+            await db.execute(
+                select(Match)
+                .options(selectinload(Match.home_team), selectinload(Match.away_team))
+                .where(Match.api_object_id == oid)
+            )
         ).scalar_one_or_none()
+
+        api_type = _first(game, "type")
+        is_knockout = map_stage(api_type) != "group"
 
         group = _first(game, "group", "group_letter")
         group_letter = str(group).replace("Group ", "").strip()[:2] if group else None
 
         if match is None:
-            match = await _find_schedule_match(db, home, away, group=group_letter)
+            if is_knockout:
+                # Knockout slots carry placeholder teams (2A vs 2B), so they
+                # can't be matched by real team codes - locate the bracket slot
+                # by official match number (the API id == official WC match no.)
+                # and fill in the real qualified teams below.
+                match = await _find_knockout_slot(db, parse_int(seq))
+            else:
+                match = await _find_schedule_match(db, home, away, group=group_letter)
 
         if match is None:
             stats["skipped"] += 1
             continue
+
+        if is_knockout:
+            # Sanity-check the API seeding labels against the slot's placeholder
+            # codes (warn-only; the official match-number mapping is authoritative).
+            slot_home = match.home_team.code if match.home_team else None
+            slot_away = match.away_team.code if match.away_team else None
+            lbl_home = _slot_code_from_label(_first(game, "home_team_label"))
+            lbl_away = _slot_code_from_label(_first(game, "away_team_label"))
+            if (lbl_home and slot_home and lbl_home != slot_home) or (
+                lbl_away and slot_away and lbl_away != slot_away
+            ):
+                logger.warning(
+                    "Knockout slot %s seeding mismatch: slot=%s/%s api_label=%s/%s teams=%s/%s",
+                    match.external_id, slot_home, slot_away, lbl_home, lbl_away,
+                    home.code, away.code,
+                )
+            # Resolve the placeholder slot to the real qualified teams.
+            match.home_team_id = home.id
+            match.away_team_id = away.id
+            stats["knockout"] += 1
 
         was_linked = match.api_object_id is None
         match.api_object_id = oid
@@ -230,8 +305,8 @@ async def upsert_games(
             match.api_fixture_id = parse_int(seq)
         match.stadium_id = stadium.id if stadium else match.stadium_id
         match.matchday = str(_first(game, "matchday") or "") or match.matchday
-        match.wc_match_type = _first(game, "type") or match.wc_match_type
-        if group_letter:
+        match.wc_match_type = api_type or match.wc_match_type
+        if group_letter and not is_knockout:
             match.group_letter = group_letter
         match.stage = map_stage(match.wc_match_type)
 
@@ -252,7 +327,9 @@ async def upsert_games(
             _first(game, "local_date", "localDate"),
             city_en=stadium.city_en if stadium else match.city,
         )
-        if kickoff and not match.kickoff_at:
+        # Knockout slots are seeded with placeholder kickoff times; the feed is
+        # authoritative now that the fixtures are set, so override for knockout.
+        if kickoff and (is_knockout or not match.kickoff_at):
             match.kickoff_at = kickoff
         if cal_date:
             match.local_date = cal_date
@@ -264,11 +341,12 @@ async def upsert_games(
             stats["updated"] += 1
 
     logger.info(
-        "WorldCup sync games: linked=%s updated=%s skipped=%s unresolved_teams=%s",
+        "WorldCup sync games: linked=%s updated=%s skipped=%s unresolved_teams=%s knockout=%s",
         stats["linked"],
         stats["updated"],
         stats["skipped"],
         stats["unresolved_teams"],
+        stats["knockout"],
     )
     return stats
 
