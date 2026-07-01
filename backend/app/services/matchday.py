@@ -94,6 +94,22 @@ def match_to_dict(
     }
     pre = pre_probs or probs
     timeline = events if events is not None else (match.events or [])
+    # Penalty shootout: only when a knockout match is level at full time and the
+    # API has populated the tally. The advancing side is the higher penalty score
+    # (None while a live shootout is still tied). Never fabricated.
+    went_to_penalties = (
+        match.home_penalty_score is not None
+        and match.away_penalty_score is not None
+        and match.home_score is not None
+        and match.away_score is not None
+        and match.home_score == match.away_score
+    )
+    shootout_winner: str | None = None
+    if went_to_penalties:
+        if (match.home_penalty_score or 0) > (match.away_penalty_score or 0):
+            shootout_winner = "home"
+        elif (match.away_penalty_score or 0) > (match.home_penalty_score or 0):
+            shootout_winner = "away"
     return {
         "id": match.id,
         "home_team": {
@@ -117,6 +133,15 @@ def match_to_dict(
         # Integrity signal for the UI: when False on a FINISHED match the score is
         # final but the API's scorer detail was incomplete (show what we have + a note).
         "scorers_reconciled": bool(match.scorers_reconciled),
+        # Penalty shootout (knockout only; null/empty for group + non-shootout).
+        "home_penalty_score": match.home_penalty_score,
+        "away_penalty_score": match.away_penalty_score,
+        "home_penalty_scorers": match.home_penalty_scorers or [],
+        "away_penalty_scorers": match.away_penalty_scorers or [],
+        "home_penalty_misses": match.home_penalty_misses or [],
+        "away_penalty_misses": match.away_penalty_misses or [],
+        "went_to_penalties": went_to_penalties,
+        "shootout_winner": shootout_winner,
         "stadium_id": match.stadium_id,  # for linking to the stadium view
         "stage": match.stage,
         "group_letter": match.group_letter,

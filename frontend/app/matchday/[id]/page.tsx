@@ -11,7 +11,7 @@ import { ProbBars } from "@/components/matchday/ProbBars";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TeamFlag } from "@/components/TeamFlag";
-import { formatKickoff, type Match } from "@/lib/matchday";
+import { formatKickoff, shootoutInfo, type Match } from "@/lib/matchday";
 import { useDisplayTimezone } from "@/lib/timezone";
 import { useWebSocket } from "@/lib/websocket";
 
@@ -107,6 +107,12 @@ export default function MatchDetailPage() {
   const isLive = match.status === "live";
   const isFinished = match.status === "finished";
   const ctx = match.model_context;
+  const shootout = shootoutInfo(match);
+  const shootoutWinnerName = shootout?.winnerCode
+    ? shootout.winnerCode === match.home_team.code
+      ? match.home_team.name
+      : match.away_team.name
+    : null;
   const events = [...(match.events ?? [])].sort(
     (a, b) =>
       (a.minute ?? 9999) - (b.minute ?? 9999) || (a.added_time ?? 0) - (b.added_time ?? 0),
@@ -161,6 +167,21 @@ export default function MatchDetailPage() {
             <TeamBlock team={match.away_team} score={match.away_score} align="right" />
           </div>
 
+          {shootout &&
+            (shootout.live ? (
+              <p className="md-shootout md-shootout-live mt-4 justify-center text-base">
+                <span className="md-shootout-dot" aria-hidden />
+                Penalty shootout in progress · {shootout.homePens}-{shootout.awayPens}
+              </p>
+            ) : (
+              <p className="md-shootout mt-4 justify-center text-base">
+                <span className="md-pens-badge">PENS</span>
+                {shootoutWinnerName
+                  ? `${shootoutWinnerName} win ${shootout.tally} on penalties`
+                  : `${shootout.homePens}-${shootout.awayPens} on penalties`}
+              </p>
+            ))}
+
           {match.win_prob_home != null && match.win_prob_draw != null && match.win_prob_away != null && (
             <div className="mx-auto mt-8 max-w-md">
               <h3 className="md-label mb-3 text-center">
@@ -193,6 +214,70 @@ export default function MatchDetailPage() {
           </div>
         </div>
       </div>
+
+      {shootout &&
+      (match.home_penalty_scorers?.length ||
+        match.away_penalty_scorers?.length ||
+        match.home_penalty_misses?.length ||
+        match.away_penalty_misses?.length) ? (
+        <div className="md-glass p-6 md-animate-in" style={{ animationDelay: "40ms" }}>
+          <div className="md-glass-content">
+            <h2 className="md-section-title text-champagne">
+              Penalty shootout · {match.home_team.code} {match.home_penalty_score}-
+              {match.away_penalty_score} {match.away_team.code}
+            </h2>
+            <div className="mt-4 grid gap-6 sm:grid-cols-2">
+              {[
+                {
+                  code: match.home_team.code,
+                  name: match.home_team.name,
+                  scorers: match.home_penalty_scorers ?? [],
+                  misses: match.home_penalty_misses ?? [],
+                },
+                {
+                  code: match.away_team.code,
+                  name: match.away_team.name,
+                  scorers: match.away_penalty_scorers ?? [],
+                  misses: match.away_penalty_misses ?? [],
+                },
+              ].map((side) => (
+                <div key={side.code}>
+                  <div className="mb-2 flex items-center gap-2">
+                    <TeamFlag code={side.code} size="sm" />
+                    <span className="font-bold text-app">{side.name}</span>
+                    {shootout.winnerCode === side.code && (
+                      <span className="md-advance-check" title="Advances">
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <ul className="space-y-1 text-sm">
+                    {side.scorers.map((p, i) => (
+                      <li key={`s-${i}`} className="flex items-center gap-2 text-app-secondary">
+                        <span className="text-emerald-400" aria-hidden>
+                          ●
+                        </span>
+                        {p}
+                      </li>
+                    ))}
+                    {side.misses.map((p, i) => (
+                      <li key={`m-${i}`} className="flex items-center gap-2 text-app-faint">
+                        <span className="text-red-400" aria-hidden>
+                          ✗
+                        </span>
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-app-faint">
+              Player names are shown exactly as provided by the data source.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {events.length > 0 && (
         <div className="md-glass p-6 md-animate-in" style={{ animationDelay: "60ms" }}>

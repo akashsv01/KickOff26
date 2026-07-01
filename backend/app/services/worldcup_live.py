@@ -30,6 +30,7 @@ from app.services.worldcup_parse import (
     normalize_code,
     parse_elapsed_minute,
     parse_int,
+    parse_pg_str_array,
     parse_scorers_clean,
 )
 from app.websocket.gateway import ws_manager
@@ -219,6 +220,18 @@ async def apply_game_snapshot(
         match.minute = elapsed if elapsed is not None else match.minute
     match.status = new_status
 
+    # Penalty shootout (knockout matches only; the API omits these fields for
+    # group matches, so they resolve to null/empty). Parsed straight from the
+    # feed each tick so a live shootout tally updates over the same WS flow.
+    old_pens = (match.home_penalty_score, match.away_penalty_score)
+    match.home_penalty_score = parse_int(_first(game, "home_penalty_score"))
+    match.away_penalty_score = parse_int(_first(game, "away_penalty_score"))
+    match.home_penalty_scorers = parse_pg_str_array(_first(game, "home_penalty_scorers"))
+    match.away_penalty_scorers = parse_pg_str_array(_first(game, "away_penalty_scorers"))
+    match.home_penalty_misses = parse_pg_str_array(_first(game, "home_penalty_misses"))
+    match.away_penalty_misses = parse_pg_str_array(_first(game, "away_penalty_misses"))
+    pens_changed = old_pens != (match.home_penalty_score, match.away_penalty_score)
+
     score_changed = (old_home or 0) != (match.home_score or 0) or (old_away or 0) != (
         match.away_score or 0
     )
@@ -284,6 +297,7 @@ async def apply_game_snapshot(
         or (old_away or 0) != (match.away_score or 0)
         or old_minute != match.minute
         or goals_changed
+        or pens_changed
     )
     if changed:
         await _broadcast_match_update(db, match, enriched["pre_probs"])

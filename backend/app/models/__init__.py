@@ -163,6 +163,15 @@ class Match(Base):
     # Set True once the finish-transition reconciliation has run (regardless of
     # outcome), so reconciled=False is distinguishable from "not yet processed".
     reconcile_attempted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Penalty shootout (knockout matches only; null/empty otherwise). The score
+    # is the shootout tally; scorers/misses are the players as the API reports
+    # them. The advancing team is derived from the higher penalty score.
+    home_penalty_score: Mapped[int | None] = mapped_column(Integer)
+    away_penalty_score: Mapped[int | None] = mapped_column(Integer)
+    home_penalty_scorers: Mapped[list] = mapped_column(JsonField, default=list)
+    away_penalty_scorers: Mapped[list] = mapped_column(JsonField, default=list)
+    home_penalty_misses: Mapped[list] = mapped_column(JsonField, default=list)
+    away_penalty_misses: Mapped[list] = mapped_column(JsonField, default=list)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

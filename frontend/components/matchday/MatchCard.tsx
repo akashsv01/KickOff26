@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TeamFlag } from "@/components/TeamFlag";
-import { formatKickoff, matchDetailHref, navigateToMatchDetail, type Match } from "@/lib/matchday";
+import {
+  formatKickoff,
+  matchDetailHref,
+  navigateToMatchDetail,
+  shootoutInfo,
+  type Match,
+} from "@/lib/matchday";
 import { useDisplayTimezone } from "@/lib/timezone";
 import { AnimatedScore } from "./AnimatedScore";
 import { glassCardClass, matchCardClick, matchCardKeyDown } from "./GlassCard";
@@ -29,6 +35,7 @@ export function MatchCard({
   const isLive = m.status === "live";
   const href = matchDetailHref(m.id);
   const goToDetail = () => navigateToMatchDetail(router.push, m.id);
+  const shootout = shootoutInfo(m);
 
   return (
     <Link
@@ -76,6 +83,11 @@ export function MatchCard({
               <div className="flex items-center justify-center gap-1.5">
                 <TeamFlag code={homeCode} size="sm" />
                 <span className="md-team-code tabular-nums">{homeCode}</span>
+                {shootout?.winnerCode === homeCode && (
+                  <span className="md-advance-check" title="Advances" aria-label="Advances">
+                    ✓
+                  </span>
+                )}
               </div>
               <div className="mt-1.5">
                 <AnimatedScore value={m.home_score} large={hero} />
@@ -90,6 +102,11 @@ export function MatchCard({
             </div>
             <div className="min-w-0 flex-1 text-center">
               <div className="flex items-center justify-center gap-1.5">
+                {shootout?.winnerCode === awayCode && (
+                  <span className="md-advance-check" title="Advances" aria-label="Advances">
+                    ✓
+                  </span>
+                )}
                 <span className="md-team-code tabular-nums">{awayCode}</span>
                 <TeamFlag code={awayCode} size="sm" />
               </div>
@@ -98,6 +115,20 @@ export function MatchCard({
               </div>
             </div>
           </div>
+          {shootout &&
+            (shootout.live ? (
+              <div className="md-shootout md-shootout-live">
+                <span className="md-shootout-dot" aria-hidden />
+                Penalty shootout · {shootout.homePens}-{shootout.awayPens}
+              </div>
+            ) : (
+              <div className="md-shootout">
+                <span className="md-pens-badge">PENS</span>
+                {shootout.winnerCode
+                  ? `${shootout.winnerCode} win ${shootout.tally} on penalties`
+                  : `${shootout.homePens}-${shootout.awayPens} on penalties`}
+              </div>
+            ))}
           {m.win_prob_home != null && m.win_prob_draw != null && m.win_prob_away != null && (
             <div className="mt-5">
               <ProbBars

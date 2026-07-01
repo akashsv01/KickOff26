@@ -92,6 +92,28 @@ def parse_elapsed_minute(elapsed: Any) -> int | None:
     return parse_int(elapsed)
 
 
+def parse_pg_str_array(value: Any) -> list[str]:
+    """Parse a Postgres array-style string like ``{"A","B"}`` into ``["A", "B"]``.
+
+    Used for the penalty scorers/misses fields. Returns [] for null/empty.
+    Names are returned exactly as the API provides them (transliterations are
+    not "corrected", to avoid introducing errors).
+    """
+    if value is None:
+        return []
+    s = str(value).strip()
+    if s in ("", "{}", "null", "NULL", "None", "[]"):
+        return []
+    if s.startswith("{") and s.endswith("}"):
+        s = s[1:-1]
+    if not s.strip():
+        return []
+    quoted = re.findall(r'"((?:[^"\\]|\\.)*)"', s)
+    if quoted:
+        return [q.replace('\\"', '"').strip() for q in quoted if q.strip()]
+    return [part.strip() for part in s.split(",") if part.strip()]
+
+
 def derive_status(game: dict) -> MatchStatus:
     """Derive status from finished + time_elapsed (\"notstarted\" | \"live\" | \"finished\" | minutes)."""
     if parse_finished(_first(game, "finished", "is_finished", "completed")):

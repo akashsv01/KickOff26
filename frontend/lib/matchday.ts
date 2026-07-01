@@ -44,6 +44,15 @@ export type Match = {
   country?: string | null;
   stadium_id?: number | null; // links to the stadium view
   scorers_reconciled?: boolean; // false on a FINISHED match = score final, scorer detail incomplete
+  // Penalty shootout (knockout only; null/empty for group + non-shootout matches).
+  home_penalty_score?: number | null;
+  away_penalty_score?: number | null;
+  home_penalty_scorers?: string[];
+  away_penalty_scorers?: string[];
+  home_penalty_misses?: string[];
+  away_penalty_misses?: string[];
+  went_to_penalties?: boolean;
+  shootout_winner?: "home" | "away" | null;
   events?: MatchEvent[];
   model_context?: ModelContext;
   followed_team_id?: number;
@@ -68,6 +77,38 @@ export type LineupSide = {
   starting_xi: LineupPlayer[];
   bench: LineupPlayer[];
 };
+
+/**
+ * Penalty-shootout summary for a knockout match, or null when there was no
+ * shootout (group matches, or knockouts decided in normal time). `tally` is
+ * winner-first (e.g. "3-2"); `live` is true while the shootout is in progress.
+ */
+export function shootoutInfo(m: Match): {
+  homePens: number;
+  awayPens: number;
+  tally: string;
+  winnerCode: string | null;
+  live: boolean;
+} | null {
+  if (!m.went_to_penalties || m.home_penalty_score == null || m.away_penalty_score == null) {
+    return null;
+  }
+  const hp = m.home_penalty_score;
+  const ap = m.away_penalty_score;
+  const winnerCode =
+    m.shootout_winner === "home"
+      ? m.home_team.code
+      : m.shootout_winner === "away"
+        ? m.away_team.code
+        : null;
+  return {
+    homePens: hp,
+    awayPens: ap,
+    tally: `${Math.max(hp, ap)}-${Math.min(hp, ap)}`,
+    winnerCode,
+    live: m.status === "live",
+  };
+}
 
 export type MatchDay = { date: string; match_count: number };
 

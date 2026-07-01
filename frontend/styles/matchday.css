@@ -237,6 +237,61 @@
   margin-bottom: 1.5rem;
 }
 
+/* Penalty shootout (knockout matches) */
+.md-shootout {
+  margin-top: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--app-gold);
+}
+
+.md-shootout-live {
+  color: #fca5a5;
+}
+
+.md-pens-badge {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.42rem;
+  border-radius: 9999px;
+  color: var(--app-gold);
+  border: 1px solid var(--app-gold-border, color-mix(in srgb, var(--app-gold) 45%, transparent));
+  background: var(--app-gold-subtle, color-mix(in srgb, var(--app-gold) 12%, transparent));
+}
+
+.md-shootout-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: #ef4444;
+  box-shadow: 0 0 8px color-mix(in srgb, #ef4444 70%, transparent);
+  animation: md-pens-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes md-pens-dot-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+}
+
+.md-advance-check {
+  color: var(--app-gold);
+  font-weight: 900;
+  font-size: 0.85em;
+  line-height: 1;
+}
+
 /* Staggered entrance */
 @keyframes md-fade-up {
   from {

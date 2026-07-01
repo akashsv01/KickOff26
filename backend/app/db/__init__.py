@@ -301,6 +301,31 @@ def _migrate_poll_tables(sync_conn) -> None:
         sync_conn.execute(text("CREATE INDEX ix_poll_votes_user_id ON poll_votes (user_id)"))
 
 
+def _migrate_match_penalty_columns(sync_conn) -> None:
+    """Add matches penalty-shootout columns (idempotent, dialect-aware).
+
+    Knockout matches decided on penalties carry a shootout tally plus the
+    scorers/misses lists; group matches leave these null/empty.
+    """
+    from sqlalchemy import inspect, text
+
+    insp = inspect(sync_conn)
+    if "matches" not in insp.get_table_names():
+        return
+    cols = {c["name"] for c in insp.get_columns("matches")}
+    json_type = "JSONB" if sync_conn.dialect.name == "postgresql" else "JSON"
+    for col, ddl in (
+        ("home_penalty_score", "INTEGER"),
+        ("away_penalty_score", "INTEGER"),
+        ("home_penalty_scorers", json_type),
+        ("away_penalty_scorers", json_type),
+        ("home_penalty_misses", json_type),
+        ("away_penalty_misses", json_type),
+    ):
+        if col not in cols:
+            sync_conn.execute(text(f"ALTER TABLE matches ADD COLUMN {col} {ddl}"))
+
+
 async def init_db() -> None:
     from app import models  # noqa: F401
 
@@ -316,3 +341,4 @@ async def init_db() -> None:
         await conn.run_sync(_migrate_match_scorers_reconciled)
         await conn.run_sync(_migrate_password_reset_columns)
         await conn.run_sync(_migrate_poll_tables)
+        await conn.run_sync(_migrate_match_penalty_columns)
