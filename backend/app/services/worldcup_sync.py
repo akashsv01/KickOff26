@@ -216,6 +216,10 @@ def _slot_code_from_label(label: str | None) -> str | None:
     if low.startswith("3rd group ") or low.startswith("third group "):
         groups = s.split("roup", 1)[-1]
         return "3" + "".join(ch for ch in groups.upper() if ch.isalpha())
+    # Later rounds reference a prior match, e.g. "Winner Match 79" -> the seed
+    # placeholder "W79" used by the R16+ bracket slots.
+    if low.startswith("winner match "):
+        return "W" + s.rsplit(" ", 1)[-1]
     return None
 
 
@@ -239,12 +243,25 @@ async def upsert_games(
             stats["skipped"] += 1
             continue
 
+        api_type = _first(game, "type")
+        is_knockout = map_stage(api_type) != "group"
+
         home_seq = str(_first(game, "home_team_id", "homeTeamId") or "")
         away_seq = str(_first(game, "away_team_id", "awayTeamId") or "")
         home = teams_by_seq.get(home_seq)
         away = teams_by_seq.get(away_seq)
         if not home or not away:
             stats["unresolved_teams"] += 1
+            if is_knockout:
+                # CORRECT (not a bug): the API has not decided this knockout slot's
+                # teams yet (still a "Winner of match N" placeholder). We keep our
+                # own seeded placeholder until the source resolves the winner.
+                stats["knockout_pending"] = stats.get("knockout_pending", 0) + 1
+                logger.info(
+                    "Knockout link: slot feed-id %s (%s) unresolved in API - "
+                    "keeping seeded placeholder",
+                    seq, api_type,
+                )
             continue
 
         stadium_seq = str(_first(game, "stadium_id", "stadiumId") or "")
@@ -258,47 +275,63 @@ async def upsert_games(
             )
         ).scalar_one_or_none()
 
-        api_type = _first(game, "type")
-        is_knockout = map_stage(api_type) != "group"
-
         group = _first(game, "group", "group_letter")
         group_letter = str(group).replace("Group ", "").strip()[:2] if group else None
 
         if match is None:
             if is_knockout:
-                # Knockout slots carry placeholder teams (2A vs 2B), so they
-                # can't be matched by real team codes - locate the bracket slot
-                # by official match number (the API id == official WC match no.)
-                # and fill in the real qualified teams below.
+                # Knockout slots carry placeholder teams (2A vs 2B, W79 vs W80),
+                # so they can't be matched by real team codes - locate the bracket
+                # slot by official match number (the API id == official WC match
+                # number) and fill in the real qualified teams below.
                 match = await _find_knockout_slot(db, parse_int(seq))
             else:
                 match = await _find_schedule_match(db, home, away, group=group_letter)
 
         if match is None:
             stats["skipped"] += 1
+            if is_knockout:
+                # BUG signal: the API has real teams for this knockout game but we
+                # could not find its bracket slot to link. Distinct from the
+                # "unresolved placeholder" case above.
+                logger.warning(
+                    "Knockout link: feed-id %s has real teams %s/%s but no bracket "
+                    "slot matched - NOT linked (check seeding)",
+                    seq, home.code, away.code,
+                )
             continue
 
+        was_linked = match.api_object_id is None
+
         if is_knockout:
-            # Sanity-check the API seeding labels against the slot's placeholder
-            # codes (warn-only; the official match-number mapping is authoritative).
-            slot_home = match.home_team.code if match.home_team else None
-            slot_away = match.away_team.code if match.away_team else None
-            lbl_home = _slot_code_from_label(_first(game, "home_team_label"))
-            lbl_away = _slot_code_from_label(_first(game, "away_team_label"))
-            if (lbl_home and slot_home and lbl_home != slot_home) or (
-                lbl_away and slot_away and lbl_away != slot_away
-            ):
-                logger.warning(
-                    "Knockout slot %s seeding mismatch: slot=%s/%s api_label=%s/%s teams=%s/%s",
-                    match.external_id, slot_home, slot_away, lbl_home, lbl_away,
-                    home.code, away.code,
+            if was_linked:
+                # First link only: validate the slot's placeholder against the API
+                # seeding label (2A / W79). On re-sync the slot already holds real
+                # teams, so we skip this to avoid false "mismatch" noise. The
+                # official match-number mapping is authoritative either way.
+                slot_home = match.home_team.code if match.home_team else None
+                slot_away = match.away_team.code if match.away_team else None
+                lbl_home = _slot_code_from_label(_first(game, "home_team_label"))
+                lbl_away = _slot_code_from_label(_first(game, "away_team_label"))
+                if (lbl_home and slot_home and lbl_home != slot_home) or (
+                    lbl_away and slot_away and lbl_away != slot_away
+                ):
+                    logger.warning(
+                        "Knockout link: slot %s placeholder/label mismatch "
+                        "(slot=%s/%s api_label=%s/%s); linking to %s/%s by match number",
+                        match.external_id, slot_home, slot_away, lbl_home, lbl_away,
+                        home.code, away.code,
+                    )
+                logger.info(
+                    "Knockout link: slot %s (feed-id %s) API resolved -> %s vs %s; "
+                    "linked + backfilled api_object_id",
+                    match.external_id, seq, home.code, away.code,
                 )
             # Resolve the placeholder slot to the real qualified teams.
             match.home_team_id = home.id
             match.away_team_id = away.id
             stats["knockout"] += 1
 
-        was_linked = match.api_object_id is None
         match.api_object_id = oid
         match.api_seq_id = seq
         if seq:
@@ -341,14 +374,75 @@ async def upsert_games(
             stats["updated"] += 1
 
     logger.info(
-        "WorldCup sync games: linked=%s updated=%s skipped=%s unresolved_teams=%s knockout=%s",
+        "WorldCup sync games: linked=%s updated=%s skipped=%s unresolved_teams=%s "
+        "knockout_linked=%s knockout_pending=%s",
         stats["linked"],
         stats["updated"],
         stats["skipped"],
         stats["unresolved_teams"],
         stats["knockout"],
+        stats.get("knockout_pending", 0),
     )
     return stats
+
+
+async def link_resolved_knockouts(
+    db: AsyncSession,
+    raw_games: list[dict],
+    teams_by_seq: dict[str, Team],
+) -> int:
+    """Self-heal knockout links from already-fetched poll games.
+
+    A knockout bracket slot can only be linked once the API assigns it real
+    teams (the group-stage code-match path can't, since the slot still holds a
+    placeholder). This runs on the poll loop so newly-resolved winners link
+    without waiting for a restart or a full reference sync. It is cheap and
+    idempotent: it only touches knockout games whose slot is still unlinked and
+    whose teams the API has now resolved. Returns the number newly linked.
+    """
+    linked = 0
+    for game in raw_games:
+        if not isinstance(game, dict):
+            continue
+        if map_stage(_first(game, "type")) == "group":
+            continue
+        oid = api_object_id(game)
+        if not oid:
+            continue
+        already = (
+            await db.execute(select(Match.id).where(Match.api_object_id == oid))
+        ).scalar_one_or_none()
+        if already is not None:
+            continue  # already linked - poller applies it by api_object_id
+        home = teams_by_seq.get(str(_first(game, "home_team_id", "homeTeamId") or ""))
+        away = teams_by_seq.get(str(_first(game, "away_team_id", "awayTeamId") or ""))
+        if not home or not away:
+            continue  # winner not resolved yet - keep placeholder (full sync logs this)
+        seq = api_seq_id(game)
+        match = await _find_knockout_slot(db, parse_int(seq))
+        if match is None:
+            logger.warning(
+                "Knockout link (poll): feed-id %s has real teams %s/%s but no slot "
+                "matched - NOT linked",
+                seq, home.code, away.code,
+            )
+            continue
+        match.home_team_id = home.id
+        match.away_team_id = away.id
+        match.api_object_id = oid
+        match.api_seq_id = seq
+        if seq:
+            match.api_fixture_id = parse_int(seq)
+        match.wc_match_type = _first(game, "type") or match.wc_match_type
+        match.stage = map_stage(match.wc_match_type)
+        await db.flush()
+        linked += 1
+        logger.info(
+            "Knockout link (poll): slot %s (feed-id %s) API resolved -> %s vs %s; "
+            "linked + backfilled api_object_id",
+            match.external_id, seq, home.code, away.code,
+        )
+    return linked
 
 
 async def sync_worldcup_data(db: AsyncSession, client: WorldCupApiClient | None = None) -> dict:

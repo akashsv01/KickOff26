@@ -36,10 +36,12 @@ export function TournamentCalendar({
   const today = localTodayKey(zone);
 
   const year = 2026;
-  const month = monthIdx;
-  const monthNum = month + 6;
-  const totalDays = daysInMonth(year, month);
-  const firstDow = new Date(year, month, 1).getDay();
+  const monthNum = monthIdx + 6; // 1-based calendar month (6 = June, 7 = July)
+  const jsMonth = monthNum - 1; // 0-based JS month index (5 = June, 6 = July)
+  const totalDays = daysInMonth(year, jsMonth);
+  // First weekday of the month, built as a LOCAL date so getDay() is the true
+  // calendar weekday (timezone-independent) - never from an ISO/UTC string.
+  const firstDow = new Date(year, jsMonth, 1).getDay();
 
   const cells: (string | null)[] = [
     ...Array(firstDow).fill(null),
